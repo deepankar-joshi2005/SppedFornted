@@ -1,14 +1,66 @@
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as Print from 'expo-print';
 import * as ScreenCapture from 'expo-screen-capture';
 import * as Sharing from 'expo-sharing';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import NotificationBell from '../components/NotificationBell';
 import { Nav } from '../navigation/types';
 import { getSolutions, SolutionQuestion, SolutionsResponse } from '../services/attempts.service';
 import { ERROR, MUTED, NAVY } from '../theme/colors';
+
+const DOWNLOAD_DIR_KEY = 'speedEducation.pdfDownloadDirUri';
+
+const sanitizeFileName = (name: string): string => name.trim().replace(/[\\/:*?"<>|]+/g, '-');
+
+// Writes the generated PDF straight into a folder the user picked once
+// (via Android's Storage Access Framework), so repeat downloads need no
+// dialog at all — no share sheet, no app picker.
+const saveToDownloadsAndroid = async (sourceUri: string, fileName: string): Promise<boolean> => {
+  const { StorageAccessFramework } = FileSystem;
+  const base64 = await FileSystem.readAsStringAsync(sourceUri, {
+    encoding: FileSystem.EncodingType.Base64,
+  });
+
+  const writeInto = async (directoryUri: string): Promise<boolean> => {
+    try {
+      const destUri = await StorageAccessFramework.createFileAsync(
+        directoryUri,
+        fileName,
+        'application/pdf'
+      );
+      await FileSystem.writeAsStringAsync(destUri, base64, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  const savedDirectoryUri = await AsyncStorage.getItem(DOWNLOAD_DIR_KEY);
+  if (savedDirectoryUri && (await writeInto(savedDirectoryUri))) {
+    return true;
+  }
+
+  const permission = await StorageAccessFramework.requestDirectoryPermissionsAsync();
+  if (!permission.granted) return false;
+
+  await AsyncStorage.setItem(DOWNLOAD_DIR_KEY, permission.directoryUri);
+  return writeInto(permission.directoryUri);
+};
 
 type Props = {
   token: string;
@@ -76,6 +128,7 @@ export default function SolutionReviewScreen({ token, attemptId, nav }: Props) {
   const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
+    if (Platform.OS === 'web') return;
     ScreenCapture.preventScreenCaptureAsync();
     return () => {
       ScreenCapture.allowScreenCaptureAsync();
@@ -103,11 +156,19 @@ export default function SolutionReviewScreen({ token, attemptId, nav }: Props) {
     try {
       const html = buildPaperHtml(data.testTitle, data.questions);
       const { uri } = await Print.printToFileAsync({ html });
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(uri, {
-          mimeType: 'application/pdf',
-          dialogTitle: `${data.testTitle} - Answer Key`,
-        });
+      const fileName = `${sanitizeFileName(data.testTitle)}.Speed.pdf`;
+
+      if (Platform.OS === 'android') {
+        const saved = await saveToDownloadsAndroid(uri, fileName);
+        if (saved) {
+          Alert.alert('Downloaded', `${fileName} has been saved to your chosen folder.`);
+        } else if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(uri, { mimeType: 'application/pdf', dialogTitle: fileName });
+        }
+      } else if (await Sharing.isAvailableAsync()) {
+        // iOS sandboxes app files — "Save to Files" via the share sheet is
+        // the only way for the user to get the PDF onto their device.
+        await Sharing.shareAsync(uri, { mimeType: 'application/pdf', dialogTitle: fileName });
       } else {
         Alert.alert('Saved', 'PDF generated, but sharing is not available on this device.');
       }
