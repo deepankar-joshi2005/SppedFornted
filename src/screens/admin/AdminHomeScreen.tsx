@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import NotificationBell from '../../components/NotificationBell';
 import StatTile from '../../components/admin/StatTile';
 import { AdminNav } from '../../navigation/adminTypes';
 import { AdminDashboardData, getAdminDashboard } from '../../services/admin/dashboard.service';
@@ -106,11 +107,14 @@ export default function AdminHomeScreen({ user, token, nav }: Props) {
       >
         <View style={styles.headerRow}>
           <View>
-            <Text style={styles.welcomeText}>Dehradun Coaching Centre</Text>
+            <Text style={styles.welcomeText}>Speed Education</Text>
             <Text style={styles.helloText}>Good Morning, {user.name.split(' ')[0]} 👋</Text>
           </View>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{initials}</Text>
+          <View style={styles.headerActions}>
+            <NotificationBell token={token} onPress={() => nav.push({ name: 'notifications' })} />
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>{initials}</Text>
+            </View>
           </View>
         </View>
 
@@ -199,6 +203,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   welcomeText: { fontSize: 12.5, color: MUTED },
   helloText: { fontSize: 18, fontWeight: '800', color: NAVY, marginTop: 2 },
   avatar: {

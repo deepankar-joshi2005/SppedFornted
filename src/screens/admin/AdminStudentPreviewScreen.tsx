@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import AdminHeader from '../../components/admin/AdminHeader';
 import PrimaryButton from '../../components/PrimaryButton';
 import { AdminNav } from '../../navigation/adminTypes';
@@ -70,12 +71,12 @@ export default function AdminStudentPreviewScreen({ token, testId, nav }: Props)
 
   if (loading || !test) {
     return (
-      <View style={styles.root}>
+      <SafeAreaView style={styles.root} edges={['top']}>
         <AdminHeader title="Student Preview" onBack={() => nav.pop()} />
         <View style={styles.loadingBox}>
           <ActivityIndicator color={NAVY} size="large" />
         </View>
-      </View>
+      </SafeAreaView>
     );
   }
 
@@ -91,7 +92,7 @@ export default function AdminStudentPreviewScreen({ token, testId, nav }: Props)
   }
 
   return (
-    <View style={styles.root}>
+    <SafeAreaView style={styles.root} edges={['top']}>
       <AdminHeader title="Student Preview" subtitle={test.title} onBack={() => nav.pop()} />
 
       <View style={styles.banner}>
@@ -133,7 +134,7 @@ export default function AdminStudentPreviewScreen({ token, testId, nav }: Props)
           onPress={() => nav.replace({ name: 'publishTest', testId })}
         />
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -149,7 +150,7 @@ function StepDetail({
   onBack: () => void;
 }) {
   return (
-    <View style={styles.root}>
+    <SafeAreaView style={styles.root} edges={['top']}>
       <AdminHeader title="Preview" subtitle={test.title} onBack={onBack} />
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {step === 'instructions' && (
@@ -234,7 +235,7 @@ function StepDetail({
           </View>
         )}
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 

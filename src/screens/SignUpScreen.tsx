@@ -13,12 +13,16 @@ type Props = {
   onGoToLogin: () => void;
 };
 
-type Errors = Partial<Record<'name' | 'email' | 'mobile' | 'password' | 'confirmPassword', string>>;
+type Errors = Partial<
+  Record<'name' | 'email' | 'mobile' | 'city' | 'state' | 'password' | 'confirmPassword', string>
+>;
 
 export default function SignUpScreen({ onBack, onSignUpSuccess, onGoToLogin }: Props) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [mobile, setMobile] = useState('');
+  const [city, setCity] = useState('');
+  const [state, setState] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [errors, setErrors] = useState<Errors>({});
@@ -32,6 +36,8 @@ export default function SignUpScreen({ onBack, onSignUpSuccess, onGoToLogin }: P
     else if (!isValidEmail(email)) next.email = 'Enter a valid email address';
     if (!mobile.trim()) next.mobile = 'Mobile number is required';
     else if (!isValidMobile(mobile)) next.mobile = 'Enter a valid 10-digit mobile number';
+    if (!city.trim()) next.city = 'City is required';
+    if (!state.trim()) next.state = 'State is required';
     if (!password) next.password = 'Password is required';
     else if (!isStrongPassword(password)) next.password = PASSWORD_HINT;
     if (confirmPassword !== password) next.confirmPassword = 'Passwords do not match';
@@ -50,6 +56,8 @@ export default function SignUpScreen({ onBack, onSignUpSuccess, onGoToLogin }: P
         name: name.trim(),
         email: email.trim(),
         mobile: mobile.trim(),
+        city: city.trim(),
+        state: state.trim(),
         password,
       });
       onSignUpSuccess(result);
@@ -64,7 +72,7 @@ export default function SignUpScreen({ onBack, onSignUpSuccess, onGoToLogin }: P
     <AuthLayout
       onBack={onBack}
       title="Create Account"
-      subtitle="Join Dehradun Coaching Centre and start your journey to success."
+      subtitle="Join Speed Education and start your journey to success."
       footerText="Already have an account?"
       footerActionText="Login"
       onFooterAction={onGoToLogin}
@@ -100,6 +108,22 @@ export default function SignUpScreen({ onBack, onSignUpSuccess, onGoToLogin }: P
         error={errors.mobile}
         keyboardType="phone-pad"
         maxLength={10}
+      />
+      <FormInput
+        icon="location-outline"
+        placeholder="City"
+        value={city}
+        onChangeText={setCity}
+        error={errors.city}
+        autoCapitalize="words"
+      />
+      <FormInput
+        icon="map-outline"
+        placeholder="State"
+        value={state}
+        onChangeText={setState}
+        error={errors.state}
+        autoCapitalize="words"
       />
       <FormInput
         icon="lock-closed-outline"

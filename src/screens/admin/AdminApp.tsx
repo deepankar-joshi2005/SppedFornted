@@ -9,6 +9,7 @@ import AdminAddCategoryScreen from './AdminAddCategoryScreen';
 import AdminCategoryDetailScreen from './AdminCategoryDetailScreen';
 import AdminStudentsScreen from './AdminStudentsScreen';
 import AdminStudentDetailScreen from './AdminStudentDetailScreen';
+import AdminNotificationsScreen from './AdminNotificationsScreen';
 import AdminResultsScreen from './AdminResultsScreen';
 import AdminResultsForTestScreen from './AdminResultsForTestScreen';
 import AdminMoreScreen from './AdminMoreScreen';
@@ -108,6 +109,9 @@ export default function AdminApp({ user, token, onLogout }: Props) {
         )}
         {current.name === 'studentDetail' && (
           <AdminStudentDetailScreen token={token} studentId={current.studentId} nav={nav} />
+        )}
+        {current.name === 'notifications' && (
+          <AdminNotificationsScreen token={token} nav={nav} />
         )}
         {current.name === 'resultsForTest' && (
           <AdminResultsForTestScreen

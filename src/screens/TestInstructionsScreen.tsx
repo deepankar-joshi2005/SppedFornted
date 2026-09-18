@@ -1,9 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Nav } from '../navigation/types';
-import { startAttempt } from '../services/attempts.service';
+import { CoachingOnlyError, startAttempt } from '../services/attempts.service';
 import { getTestInstructions, TestInstructions } from '../services/tests.service';
 import { ERROR, GOLD, MUTED, NAVY } from '../theme/colors';
 
@@ -48,7 +48,11 @@ export default function TestInstructionsScreen({ token, testId, nav }: Props) {
       const result = await startAttempt(token, testId);
       nav.push({ name: 'testTaking', attemptId: result.attemptId, testId });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to start test.');
+      if (err instanceof CoachingOnlyError) {
+        Alert.alert('Coaching Students Only', err.message);
+      } else {
+        setError(err instanceof Error ? err.message : 'Failed to start test.');
+      }
     } finally {
       setStarting(false);
     }

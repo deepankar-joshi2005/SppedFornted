@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import { useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import AdminHeader from '../../components/admin/AdminHeader';
 import PrimaryButton from '../../components/PrimaryButton';
 import { AdminNav } from '../../navigation/adminTypes';
@@ -78,7 +79,7 @@ export default function AdminImportQuestionsScreen({ token, testId, nav }: Props
   const errorsToShow = result ? (showAllErrors ? result.errors : result.errors.slice(0, 5)) : [];
 
   return (
-    <View style={styles.root}>
+    <SafeAreaView style={styles.root} edges={['top']}>
       <AdminHeader title="Import Questions" subtitle="Bulk add via spreadsheets" onBack={() => nav.pop()} />
       <ScrollView ref={scrollRef} contentContainerStyle={styles.scrollContent}>
         <View style={styles.typeRow}>
@@ -241,7 +242,7 @@ export default function AdminImportQuestionsScreen({ token, testId, nav }: Props
           </View>
         )}
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 

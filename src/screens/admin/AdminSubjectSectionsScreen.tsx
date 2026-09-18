@@ -9,6 +9,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import AdminHeader from '../../components/admin/AdminHeader';
 import ToggleRow from '../../components/admin/ToggleRow';
 import PrimaryButton from '../../components/PrimaryButton';
@@ -96,17 +97,17 @@ export default function AdminSubjectSectionsScreen({ token, testId, nav }: Props
 
   if (loading) {
     return (
-      <View style={styles.root}>
+      <SafeAreaView style={styles.root} edges={['top']}>
         <AdminHeader title="Subject Sections" onBack={() => nav.pop()} />
         <View style={styles.loadingBox}>
           <ActivityIndicator color={NAVY} size="large" />
         </View>
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={styles.root}>
+    <SafeAreaView style={styles.root} edges={['top']}>
       <AdminHeader title="Subject Sections" subtitle={test?.title} onBack={() => nav.pop()} />
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <ToggleRow
@@ -189,7 +190,7 @@ export default function AdminSubjectSectionsScreen({ token, testId, nav }: Props
           loading={saving}
         />
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 

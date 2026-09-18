@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import AdminHeader from '../../components/admin/AdminHeader';
 import ImagePickerBox from '../../components/admin/ImagePickerBox';
 import StepProgressHeader from '../../components/admin/StepProgressHeader';
@@ -98,7 +99,7 @@ export default function AdminCreateSeriesStep1Screen({
   };
 
   return (
-    <View style={styles.root}>
+    <SafeAreaView style={styles.root} edges={['top']}>
       <AdminHeader title="Create Test Series" onBack={() => nav.pop()} />
       <StepProgressHeader steps={['Basic Info', 'Config', 'Preview']} currentIndex={0} />
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -177,7 +178,7 @@ export default function AdminCreateSeriesStep1Screen({
           />
         </ScrollView>
       </KeyboardAvoidingView>
-    </View>
+    </SafeAreaView>
   );
 }
 

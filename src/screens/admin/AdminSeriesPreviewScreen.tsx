@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import AdminHeader from '../../components/admin/AdminHeader';
 import StepProgressHeader from '../../components/admin/StepProgressHeader';
 import PrimaryButton from '../../components/PrimaryButton';
@@ -52,7 +53,7 @@ export default function AdminSeriesPreviewScreen({ token, seriesId, nav }: Props
   };
 
   return (
-    <View style={styles.root}>
+    <SafeAreaView style={styles.root} edges={['top']}>
       <AdminHeader title="Series Live Preview" onBack={() => nav.pop()} />
       <StepProgressHeader steps={['Basic Info', 'Config', 'Preview']} currentIndex={2} />
 
@@ -132,7 +133,7 @@ export default function AdminSeriesPreviewScreen({ token, seriesId, nav }: Props
           </View>
         </ScrollView>
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 

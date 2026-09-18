@@ -7,6 +7,8 @@ export interface SubjectSection {
   endNo: number;
 }
 
+export type TestAccessLevel = 'all' | 'coachingOnly';
+
 export interface AdminTestDetail {
   _id: string;
   series: string;
@@ -25,6 +27,7 @@ export interface AdminTestDetail {
   endDate: string | null;
   status: 'draft' | 'published';
   subjectSections: SubjectSection[];
+  accessLevel: TestAccessLevel;
 }
 
 export interface CreateTestPayload {
@@ -49,6 +52,7 @@ export interface UpdateTestConfigPayload {
   maxAttempts?: number;
   startDate?: string | null;
   endDate?: string | null;
+  accessLevel?: TestAccessLevel;
 }
 
 export interface AdminTestListItem {

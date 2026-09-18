@@ -7,8 +7,11 @@ export interface AuthUser {
   name: string;
   email: string;
   mobile: string;
+  city?: string;
+  state?: string;
   role: 'student' | 'admin';
   preferredLanguage?: Language;
+  isCoachingStudent?: boolean;
 }
 
 export interface AuthResponse {
@@ -21,6 +24,8 @@ export interface RegisterPayload {
   email: string;
   mobile: string;
   password: string;
+  city: string;
+  state: string;
 }
 
 export interface LoginPayload {

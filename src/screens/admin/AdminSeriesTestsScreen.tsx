@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import AdminHeader from '../../components/admin/AdminHeader';
 import PrimaryButton from '../../components/PrimaryButton';
 import { AdminNav } from '../../navigation/adminTypes';
@@ -50,7 +51,7 @@ export default function AdminSeriesTestsScreen({ token, seriesId, nav }: Props) 
   const totalQuestions = (tests ?? []).reduce((sum, t) => sum + t.totalQuestions, 0);
 
   return (
-    <View style={styles.root}>
+    <SafeAreaView style={styles.root} edges={['top']}>
       <AdminHeader
         title={seriesTitle || 'Test Series'}
         subtitle="Manage all tests in this series"
@@ -136,7 +137,7 @@ export default function AdminSeriesTestsScreen({ token, seriesId, nav }: Props) 
           ))}
         </ScrollView>
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 

@@ -1,10 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
+import * as Print from 'expo-print';
+import * as ScreenCapture from 'expo-screen-capture';
+import * as Sharing from 'expo-sharing';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import NotificationBell from '../components/NotificationBell';
 import { Nav } from '../navigation/types';
-import { getSolutions, SolutionsResponse } from '../services/attempts.service';
+import { getSolutions, SolutionQuestion, SolutionsResponse } from '../services/attempts.service';
 import { ERROR, MUTED, NAVY } from '../theme/colors';
 
 type Props = {
@@ -15,11 +18,69 @@ type Props = {
 
 const OPTION_LETTERS = ['A', 'B', 'C', 'D'];
 
+const escapeHtml = (value: string): string =>
+  value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+
+const buildPaperHtml = (testTitle: string, questions: SolutionQuestion[]): string => {
+  const rows = questions
+    .map((q) => {
+      const optionsHtml = q.options
+        .map((opt, i) => {
+          const isCorrect = i === q.correctOptionIndex;
+          const isSelected = i === q.selectedOption;
+          const style = isCorrect
+            ? 'color:#2E9E5B;font-weight:700;'
+            : isSelected
+              ? 'color:#C0392B;font-weight:700;'
+              : '';
+          const tag = isCorrect ? ' (Correct)' : isSelected ? ' (Your Answer)' : '';
+          return `<div style="margin:2px 0;${style}">${OPTION_LETTERS[i]}. ${escapeHtml(opt)}${tag}</div>`;
+        })
+        .join('');
+      const status =
+        q.isCorrect === null ? 'Skipped' : q.isCorrect ? 'Correct' : 'Incorrect';
+      return `
+        <div style="margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid #EDEBE4;">
+          <div style="font-weight:700;font-size:14px;color:#16315C;">Q${q.index}. ${escapeHtml(q.text)}</div>
+          <div style="margin-top:6px;font-size:13px;">${optionsHtml}</div>
+          <div style="margin-top:6px;font-size:12px;color:#5B6577;">Status: ${status}</div>
+          ${
+            q.explanation
+              ? `<div style="margin-top:6px;font-size:12px;color:#2E5B41;background:#E9F8EF;padding:8px;border-radius:6px;">${escapeHtml(q.explanation)}</div>`
+              : ''
+          }
+        </div>`;
+    })
+    .join('');
+
+  return `
+    <html>
+      <head><meta charset="utf-8" /></head>
+      <body style="font-family:Helvetica,Arial,sans-serif;padding:20px;">
+        <h2 style="color:#16315C;margin-bottom:4px;">${escapeHtml(testTitle)}</h2>
+        <p style="color:#5B6577;font-size:12px;margin-top:0;">Generated on ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
+        ${rows}
+      </body>
+    </html>`;
+};
+
 export default function SolutionReviewScreen({ token, attemptId, nav }: Props) {
   const [data, setData] = useState<SolutionsResponse | null>(null);
   const [index, setIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [fullView, setFullView] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+
+  useEffect(() => {
+    ScreenCapture.preventScreenCaptureAsync();
+    return () => {
+      ScreenCapture.allowScreenCaptureAsync();
+    };
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -36,6 +97,27 @@ export default function SolutionReviewScreen({ token, attemptId, nav }: Props) {
 
   const question = data?.questions[index];
 
+  const handleDownloadPdf = async () => {
+    if (!data) return;
+    setDownloading(true);
+    try {
+      const html = buildPaperHtml(data.testTitle, data.questions);
+      const { uri } = await Print.printToFileAsync({ html });
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(uri, {
+          mimeType: 'application/pdf',
+          dialogTitle: `${data.testTitle} - Answer Key`,
+        });
+      } else {
+        Alert.alert('Saved', 'PDF generated, but sharing is not available on this device.');
+      }
+    } catch (err) {
+      Alert.alert('Failed', err instanceof Error ? err.message : 'Could not generate PDF.');
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.root} edges={['top', 'bottom']}>
       <View style={styles.headerRow}>
@@ -50,11 +132,40 @@ export default function SolutionReviewScreen({ token, attemptId, nav }: Props) {
             </Text>
           )}
         </View>
-        <NotificationBell
-          token={token}
-          style={styles.iconBtn}
-          onPress={() => nav.push({ name: 'notifications' })}
-        />
+        <View style={styles.headerActions}>
+          {!!data && (
+            <>
+              <Pressable
+                style={styles.iconBtn}
+                onPress={() => setFullView((v) => !v)}
+                hitSlop={8}
+              >
+                <Ionicons
+                  name={fullView ? 'reader-outline' : 'list-outline'}
+                  size={20}
+                  color={NAVY}
+                />
+              </Pressable>
+              <Pressable
+                style={styles.iconBtn}
+                onPress={handleDownloadPdf}
+                disabled={downloading}
+                hitSlop={8}
+              >
+                {downloading ? (
+                  <ActivityIndicator color={NAVY} size="small" />
+                ) : (
+                  <Ionicons name="download-outline" size={20} color={NAVY} />
+                )}
+              </Pressable>
+            </>
+          )}
+          <NotificationBell
+            token={token}
+            style={styles.iconBtn}
+            onPress={() => nav.push({ name: 'notifications' })}
+          />
+        </View>
       </View>
 
       {loading && (
@@ -69,7 +180,7 @@ export default function SolutionReviewScreen({ token, attemptId, nav }: Props) {
         </View>
       )}
 
-      {!!data && data.subjectSections.length > 0 && (
+      {!fullView && !!data && data.subjectSections.length > 0 && (
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -94,7 +205,7 @@ export default function SolutionReviewScreen({ token, attemptId, nav }: Props) {
         </ScrollView>
       )}
 
-      {question && (
+      {!fullView && question && (
         <>
           <View style={styles.statusRow}>
             <Text
@@ -118,57 +229,7 @@ export default function SolutionReviewScreen({ token, attemptId, nav }: Props) {
           </View>
 
           <ScrollView contentContainerStyle={styles.scrollContent}>
-            <Text style={styles.questionText}>{question.text}</Text>
-
-            <View style={styles.optionsList}>
-              {question.options.map((option, optIdx) => {
-                const isCorrectOption = optIdx === question.correctOptionIndex;
-                const isSelected = optIdx === question.selectedOption;
-                const showWrong = isSelected && !isCorrectOption;
-                return (
-                  <View
-                    key={optIdx}
-                    style={[
-                      styles.optionRow,
-                      isCorrectOption && styles.optionRowCorrect,
-                      showWrong && styles.optionRowWrong,
-                    ]}
-                  >
-                    <View
-                      style={[
-                        styles.optionBadge,
-                        isCorrectOption && styles.optionBadgeCorrect,
-                        showWrong && styles.optionBadgeWrong,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.optionLetter,
-                          (isCorrectOption || showWrong) && styles.optionLetterLight,
-                        ]}
-                      >
-                        {OPTION_LETTERS[optIdx]}
-                      </Text>
-                    </View>
-                    <Text style={styles.optionText}>
-                      {option}
-                      {isCorrectOption ? ' (Correct Answer)' : showWrong ? ' (Your Answer)' : ''}
-                    </Text>
-                    {isCorrectOption && (
-                      <Ionicons name="checkmark-circle" size={18} color="#2E9E5B" />
-                    )}
-                    {showWrong && <Ionicons name="close-circle" size={18} color={ERROR} />}
-                  </View>
-                );
-              })}
-            </View>
-
-            {!!question.explanation && (
-              <View style={styles.explanationBox}>
-                <Text style={styles.explanationTitle}>Detailed Solution & Concept:</Text>
-                <Text style={styles.explanationText}>{question.explanation}</Text>
-              </View>
-            )}
+            <QuestionBlock question={question} />
           </ScrollView>
 
           <View style={styles.bottomBar}>
@@ -189,7 +250,86 @@ export default function SolutionReviewScreen({ token, attemptId, nav }: Props) {
           </View>
         </>
       )}
+
+      {fullView && !!data && (
+        <ScrollView contentContainerStyle={styles.scrollContent}>
+          {data.questions.map((q) => (
+            <View key={q.id} style={styles.fullViewBlock}>
+              <View style={[styles.statusRow, styles.statusRowNested]}>
+                <Text
+                  style={[
+                    styles.statusText,
+                    { color: q.isCorrect === null ? MUTED : q.isCorrect ? '#2E9E5B' : ERROR },
+                  ]}
+                >
+                  {q.isCorrect === null ? 'Skipped' : q.isCorrect ? 'Correct' : 'Incorrect'}
+                </Text>
+                <Text style={styles.counterText}>
+                  Question {q.index} of {q.total}
+                </Text>
+              </View>
+              <QuestionBlock question={q} />
+            </View>
+          ))}
+        </ScrollView>
+      )}
     </SafeAreaView>
+  );
+}
+
+function QuestionBlock({ question }: { question: SolutionQuestion }) {
+  return (
+    <>
+      <Text style={styles.questionText}>{question.text}</Text>
+
+      <View style={styles.optionsList}>
+        {question.options.map((option, optIdx) => {
+          const isCorrectOption = optIdx === question.correctOptionIndex;
+          const isSelected = optIdx === question.selectedOption;
+          const showWrong = isSelected && !isCorrectOption;
+          return (
+            <View
+              key={optIdx}
+              style={[
+                styles.optionRow,
+                isCorrectOption && styles.optionRowCorrect,
+                showWrong && styles.optionRowWrong,
+              ]}
+            >
+              <View
+                style={[
+                  styles.optionBadge,
+                  isCorrectOption && styles.optionBadgeCorrect,
+                  showWrong && styles.optionBadgeWrong,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.optionLetter,
+                    (isCorrectOption || showWrong) && styles.optionLetterLight,
+                  ]}
+                >
+                  {OPTION_LETTERS[optIdx]}
+                </Text>
+              </View>
+              <Text style={styles.optionText}>
+                {option}
+                {isCorrectOption ? ' (Correct Answer)' : showWrong ? ' (Your Answer)' : ''}
+              </Text>
+              {isCorrectOption && <Ionicons name="checkmark-circle" size={18} color="#2E9E5B" />}
+              {showWrong && <Ionicons name="close-circle" size={18} color={ERROR} />}
+            </View>
+          );
+        })}
+      </View>
+
+      {!!question.explanation && (
+        <View style={styles.explanationBox}>
+          <Text style={styles.explanationTitle}>Detailed Solution & Concept:</Text>
+          <Text style={styles.explanationText}>{question.explanation}</Text>
+        </View>
+      )}
+    </>
   );
 }
 
@@ -211,6 +351,10 @@ const styles = StyleSheet.create({
     height: 36,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   headerTitleWrap: {
     flex: 1,
@@ -366,6 +510,16 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#2E5B41',
     lineHeight: 19,
+  },
+  fullViewBlock: {
+    marginBottom: 20,
+    paddingBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EDEBE4',
+  },
+  statusRowNested: {
+    paddingHorizontal: 0,
+    paddingTop: 0,
   },
   bottomBar: {
     flexDirection: 'row',

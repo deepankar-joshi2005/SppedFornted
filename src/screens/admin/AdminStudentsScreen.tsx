@@ -114,11 +114,21 @@ export default function AdminStudentsScreen({ token, nav }: Props) {
               </Text>
             </View>
             <View style={styles.textWrap}>
-              <Text style={styles.name}>{student.name}</Text>
+              <View style={styles.nameRow}>
+                <Text style={styles.name}>{student.name}</Text>
+                {student.isCoachingStudent && (
+                  <View style={styles.tagBadge}>
+                    <Text style={styles.tagBadgeText}>Coaching</Text>
+                  </View>
+                )}
+              </View>
               <Text style={styles.meta}>
                 {student.email} • {student.mobile}
               </Text>
-              <Text style={styles.meta}>Joined {formatDate(student.joinedAt)}</Text>
+              <Text style={styles.meta}>
+                {[student.city, student.state].filter(Boolean).join(', ') || '—'} • Joined{' '}
+                {formatDate(student.joinedAt)}
+              </Text>
             </View>
             <View style={styles.statsCol}>
               <Text style={styles.statValue}>{student.attemptCount}</Text>
@@ -186,7 +196,15 @@ const styles = StyleSheet.create({
   },
   avatarText: { fontSize: 12.5, fontWeight: '800', color: NAVY },
   textWrap: { flex: 1 },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
   name: { fontSize: 13.5, fontWeight: '800', color: NAVY },
+  tagBadge: {
+    backgroundColor: '#E4F5EA',
+    borderRadius: 8,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+  },
+  tagBadgeText: { fontSize: 9.5, fontWeight: '800', color: '#2E9E5B' },
   meta: { fontSize: 11, color: MUTED, marginTop: 2 },
   statsCol: { alignItems: 'flex-end' },
   statValue: { fontSize: 15, fontWeight: '800', color: NAVY },

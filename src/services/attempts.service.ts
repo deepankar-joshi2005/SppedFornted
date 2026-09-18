@@ -41,6 +41,7 @@ export interface SectionBreakdown {
   name: string;
   correct: number;
   total: number;
+  timeSpentSeconds: number;
 }
 
 export interface AttemptResult {
@@ -91,6 +92,8 @@ export interface HistoryItem {
   submittedAt: string;
 }
 
+export class CoachingOnlyError extends Error {}
+
 const authHeaders = (token: string) => ({ headers: { Authorization: `Bearer ${token}` } });
 
 const extractErrorMessage = (error: unknown, fallback: string): string => {
@@ -112,6 +115,9 @@ export const startAttempt = async (
     );
     return response.data;
   } catch (error) {
+    if (isAxiosError(error) && error.response?.data?.code === 'COACHING_ONLY') {
+      throw new CoachingOnlyError(error.response.data.message);
+    }
     throw new Error(extractErrorMessage(error, 'Failed to start test. Please try again.'));
   }
 };
@@ -119,7 +125,12 @@ export const startAttempt = async (
 export const saveAnswer = async (
   token: string,
   attemptId: string,
-  payload: { questionId: string; selectedOption: number | null; markedForReview: boolean }
+  payload: {
+    questionId: string;
+    selectedOption: number | null;
+    markedForReview: boolean;
+    timeSpentSeconds?: number;
+  }
 ): Promise<void> => {
   try {
     await api.patch(`/attempts/${attemptId}/answer`, payload, authHeaders(token));

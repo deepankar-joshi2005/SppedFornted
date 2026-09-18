@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Image,
   Pressable,
   RefreshControl,
@@ -13,7 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { resolveAssetUrl } from '../config/api';
 import { Nav } from '../navigation/types';
-import { startAttempt } from '../services/attempts.service';
+import { CoachingOnlyError, startAttempt } from '../services/attempts.service';
 import { getTestsByCategory, TestListItem } from '../services/tests.service';
 import { ERROR, GOLD, MUTED, NAVY } from '../theme/colors';
 
@@ -75,7 +76,11 @@ export default function TestListScreen({ token, category, nav }: Props) {
       const result = await startAttempt(token, test.id);
       nav.push({ name: 'testTaking', attemptId: result.attemptId, testId: test.id });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to start test.');
+      if (err instanceof CoachingOnlyError) {
+        Alert.alert('Coaching Students Only', err.message);
+      } else {
+        setError(err instanceof Error ? err.message : 'Failed to start test.');
+      }
     } finally {
       setStartingId(null);
     }

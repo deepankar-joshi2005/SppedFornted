@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import AdminHeader from '../../components/admin/AdminHeader';
 import { AdminNav } from '../../navigation/adminTypes';
 import { getLeaderboard, LeaderboardResponse } from '../../services/leaderboard.service';
@@ -35,7 +36,7 @@ export default function AdminResultsForTestScreen({ token, testId, testTitle, na
   }, [load]);
 
   return (
-    <View style={styles.root}>
+    <SafeAreaView style={styles.root} edges={['top']}>
       <AdminHeader title={testTitle} subtitle="Leaderboard" onBack={() => nav.pop()} />
 
       {loading && (
@@ -75,7 +76,7 @@ export default function AdminResultsForTestScreen({ token, testId, testTitle, na
           ))}
         </ScrollView>
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 

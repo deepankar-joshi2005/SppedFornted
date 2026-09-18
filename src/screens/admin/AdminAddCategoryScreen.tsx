@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import AdminHeader from '../../components/admin/AdminHeader';
 import ImagePickerBox from '../../components/admin/ImagePickerBox';
 import ToggleRow from '../../components/admin/ToggleRow';
@@ -78,7 +79,7 @@ export default function AdminAddCategoryScreen({ token, categoryId, nav }: Props
   };
 
   return (
-    <View style={styles.root}>
+    <SafeAreaView style={styles.root} edges={['top']}>
       <AdminHeader title="Add Category" onBack={() => nav.pop()} />
       <KeyboardAvoidingView
         style={{ flex: 1 }}
@@ -150,7 +151,7 @@ export default function AdminAddCategoryScreen({ token, categoryId, nav }: Props
           />
         </ScrollView>
       </KeyboardAvoidingView>
-    </View>
+    </SafeAreaView>
   );
 }
 

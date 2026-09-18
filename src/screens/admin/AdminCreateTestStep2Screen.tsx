@@ -1,12 +1,17 @@
 import { useEffect, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import AdminHeader from '../../components/admin/AdminHeader';
 import StepProgressHeader from '../../components/admin/StepProgressHeader';
 import ToggleRow from '../../components/admin/ToggleRow';
 import FormInput from '../../components/FormInput';
 import PrimaryButton from '../../components/PrimaryButton';
 import { AdminNav } from '../../navigation/adminTypes';
-import { getTestDetail, updateTestConfig } from '../../services/admin/tests.service';
+import {
+  getTestDetail,
+  TestAccessLevel,
+  updateTestConfig,
+} from '../../services/admin/tests.service';
 import { MUTED, NAVY } from '../../theme/colors';
 
 type Props = {
@@ -26,6 +31,7 @@ export default function AdminCreateTestStep2Screen({ token, testId, nav }: Props
   const [negativeMarks, setNegativeMarks] = useState('0.25');
   const [attemptsMode, setAttemptsMode] = useState<AttemptsMode>('1');
   const [customAttempts, setCustomAttempts] = useState('');
+  const [accessLevel, setAccessLevel] = useState<TestAccessLevel>('coachingOnly');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [loading, setLoading] = useState(true);
@@ -41,6 +47,7 @@ export default function AdminCreateTestStep2Screen({ token, testId, nav }: Props
         setPassingMarks(String(test.passingMarks || ''));
         setNegativeMarkingEnabled(test.negativeMarkingEnabled);
         setNegativeMarks(String(test.negativeMarks ?? 0.25));
+        setAccessLevel(test.accessLevel ?? 'coachingOnly');
         setStartDate(test.startDate ? test.startDate.slice(0, 10) : '');
         setEndDate(test.endDate ? test.endDate.slice(0, 10) : '');
         if (test.maxAttempts === 0) setAttemptsMode('unlimited');
@@ -71,6 +78,7 @@ export default function AdminCreateTestStep2Screen({ token, testId, nav }: Props
         negativeMarkingEnabled,
         negativeMarks: negativeMarks ? Number(negativeMarks) : 0,
         maxAttempts,
+        accessLevel,
         startDate: startDate || null,
         endDate: endDate || null,
       });
@@ -83,7 +91,7 @@ export default function AdminCreateTestStep2Screen({ token, testId, nav }: Props
   };
 
   return (
-    <View style={styles.root}>
+    <SafeAreaView style={styles.root} edges={['top']}>
       <AdminHeader title="Test Configuration" subtitle="Step 2 of 5" onBack={() => nav.pop()} />
       <StepProgressHeader
         steps={['Basic Info', 'Config', 'Questions', 'Preview', 'Publish']}
@@ -181,6 +189,26 @@ export default function AdminCreateTestStep2Screen({ token, testId, nav }: Props
             />
           )}
 
+          <Text style={[styles.label, { marginTop: 10 }]}>Who Can Access This Test</Text>
+          <View style={styles.pillRow}>
+            {(['coachingOnly', 'all'] as TestAccessLevel[]).map((level) => (
+              <Pressable
+                key={level}
+                style={[styles.pill, accessLevel === level && styles.pillActive]}
+                onPress={() => setAccessLevel(level)}
+              >
+                <Text style={[styles.pillText, accessLevel === level && styles.pillTextActive]}>
+                  {level === 'coachingOnly' ? 'Coaching Students Only' : 'Everyone'}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+          <Text style={styles.helperText}>
+            {accessLevel === 'coachingOnly'
+              ? 'Only students tagged as "Coaching Student" can attempt this test. Others will see it but get an alert to contact the Coaching Admin.'
+              : 'Any signed-up student can attempt this test.'}
+          </Text>
+
           <View style={styles.row}>
             <View style={styles.col}>
               <Text style={styles.label}>Start Date</Text>
@@ -205,7 +233,7 @@ export default function AdminCreateTestStep2Screen({ token, testId, nav }: Props
           <PrimaryButton label="SAVE & CONTINUE" onPress={handleSave} loading={saving || loading} />
         </ScrollView>
       </KeyboardAvoidingView>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -227,4 +255,5 @@ const styles = StyleSheet.create({
   pillActive: { backgroundColor: NAVY, borderColor: NAVY },
   pillText: { fontSize: 12.5, fontWeight: '600', color: MUTED },
   pillTextActive: { color: '#FFFFFF' },
+  helperText: { fontSize: 11.5, color: MUTED, marginTop: -6, marginBottom: 14, lineHeight: 16 },
 });

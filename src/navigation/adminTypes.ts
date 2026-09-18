@@ -22,7 +22,8 @@ export type AdminRoute =
   | { name: 'publishTest'; testId: string }
   | { name: 'publishSuccess'; testId: string }
   | { name: 'studentDetail'; studentId: string }
-  | { name: 'resultsForTest'; testId: string; testTitle: string };
+  | { name: 'resultsForTest'; testId: string; testTitle: string }
+  | { name: 'notifications' };
 
 export type AdminNav = {
   push: (route: AdminRoute) => void;

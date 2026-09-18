@@ -6,9 +6,19 @@ export interface AdminStudentListItem {
   name: string;
   email: string;
   mobile: string;
+  city: string;
+  state: string;
+  isCoachingStudent: boolean;
   joinedAt: string;
   attemptCount: number;
   avgScore: number;
+}
+
+export interface AdminSectionBreakdown {
+  name: string;
+  correct: number;
+  total: number;
+  timeSpentSeconds: number;
 }
 
 export interface AdminStudentAttempt {
@@ -17,7 +27,16 @@ export interface AdminStudentAttempt {
   status: 'in-progress' | 'completed';
   score: number | null;
   scorePercent: number | null;
+  timeTakenSeconds: number | null;
   submittedAt: string | null;
+  sectionBreakdown: AdminSectionBreakdown[];
+}
+
+export interface AdminStudentWeakArea {
+  name: string;
+  accuracy: number;
+  correct: number;
+  total: number;
 }
 
 export interface AdminStudentDetail {
@@ -25,7 +44,16 @@ export interface AdminStudentDetail {
   name: string;
   email: string;
   mobile: string;
+  city: string;
+  state: string;
+  isCoachingStudent: boolean;
   joinedAt: string;
+  stats: {
+    attemptCount: number;
+    avgScore: number;
+    avgAccuracy: number;
+  };
+  weakAreas: AdminStudentWeakArea[];
   attempts: AdminStudentAttempt[];
 }
 
@@ -65,5 +93,29 @@ export const getStudentDetail = async (
     return response.data;
   } catch (error) {
     throw new Error(extractErrorMessage(error, 'Failed to load student.'));
+  }
+};
+
+export const setCoachingTag = async (
+  token: string,
+  studentId: string,
+  isCoachingStudent: boolean
+): Promise<void> => {
+  try {
+    await api.patch(
+      `/admin/students/${studentId}/coaching-tag`,
+      { isCoachingStudent },
+      authHeaders(token)
+    );
+  } catch (error) {
+    throw new Error(extractErrorMessage(error, 'Failed to update student tag.'));
+  }
+};
+
+export const deleteStudent = async (token: string, studentId: string): Promise<void> => {
+  try {
+    await api.delete(`/admin/students/${studentId}`, authHeaders(token));
+  } catch (error) {
+    throw new Error(extractErrorMessage(error, 'Failed to delete student.'));
   }
 };

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import AdminHeader from '../../components/admin/AdminHeader';
 import StepProgressHeader from '../../components/admin/StepProgressHeader';
 import FormInput from '../../components/FormInput';
@@ -81,7 +82,7 @@ export default function AdminCreateTestStep1Screen({ token, seriesId, testId, na
   };
 
   return (
-    <View style={styles.root}>
+    <SafeAreaView style={styles.root} edges={['top']}>
       <AdminHeader title="Create Test" subtitle="Step 1 of 5" onBack={() => nav.pop()} />
       <StepProgressHeader
         steps={['Basic Info', 'Config', 'Questions', 'Preview', 'Publish']}
@@ -135,7 +136,7 @@ export default function AdminCreateTestStep1Screen({ token, seriesId, testId, na
           <PrimaryButton label="SAVE & CONTINUE" onPress={handleContinue} loading={saving || loading} />
         </ScrollView>
       </KeyboardAvoidingView>
-    </View>
+    </SafeAreaView>
   );
 }
 

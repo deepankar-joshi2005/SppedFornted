@@ -50,7 +50,7 @@ export default function SignInScreen({ onLoginSuccess, onGoToSignUp, initialEmai
   return (
     <AuthLayout
       title="Welcome Back"
-      subtitle="Login to continue your preparation with Dehradun Coaching Centre."
+      subtitle="Login to continue your preparation with The Speed Education."
       footerText="Don't have an account?"
       footerActionText="Sign Up"
       onFooterAction={onGoToSignUp}

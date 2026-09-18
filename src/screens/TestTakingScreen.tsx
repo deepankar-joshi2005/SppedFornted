@@ -1,8 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
+import * as ScreenCapture from 'expo-screen-capture';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -48,6 +50,21 @@ export default function TestTakingScreen({ token, testId, nav }: Props) {
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const submittedRef = useRef(false);
+  const questionTimeRef = useRef<Record<string, number>>({});
+  const questionEnteredAtRef = useRef<number>(Date.now());
+  const pendingSavesRef = useRef<Promise<unknown>[]>([]);
+
+  const trackSave = (promise: Promise<unknown>) => {
+    pendingSavesRef.current.push(promise);
+  };
+
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    ScreenCapture.preventScreenCaptureAsync();
+    return () => {
+      ScreenCapture.allowScreenCaptureAsync();
+    };
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -78,6 +95,24 @@ export default function TestTakingScreen({ token, testId, nav }: Props) {
     submittedRef.current = true;
     setSubmitting(true);
     try {
+      const activeQuestion = session.questions[index];
+      if (activeQuestion) {
+        const elapsed = (Date.now() - questionEnteredAtRef.current) / 1000;
+        const total = (questionTimeRef.current[activeQuestion.id] ?? 0) + elapsed;
+        questionTimeRef.current[activeQuestion.id] = total;
+        const answer = answers[activeQuestion.id];
+        await saveAnswer(token, session.attemptId, {
+          questionId: activeQuestion.id,
+          selectedOption: answer?.selectedOption ?? null,
+          markedForReview: answer?.markedForReview ?? false,
+          timeSpentSeconds: total,
+        }).catch(() => {});
+      }
+      // Earlier saveAnswer calls (from navigating between questions) fire
+      // without waiting so the UI stays snappy. On a slow connection some of
+      // those can still be in flight here — wait for all of them so the
+      // server has every question's real time before it scores the attempt.
+      await Promise.allSettled(pendingSavesRef.current);
       await submitAttempt(token, session.attemptId);
       nav.replace({ name: 'testResult', attemptId: session.attemptId });
     } catch (err) {
@@ -85,7 +120,7 @@ export default function TestTakingScreen({ token, testId, nav }: Props) {
       setError(err instanceof Error ? err.message : 'Failed to submit test.');
       setSubmitting(false);
     }
-  }, [session, token, nav]);
+  }, [session, token, nav, index, answers]);
 
   useEffect(() => {
     if (!session) return;
@@ -108,14 +143,45 @@ export default function TestTakingScreen({ token, testId, nav }: Props) {
     setAnswers((prev) => {
       const next = { ...prev, [questionId]: { ...prev[questionId], ...patch } };
       if (session) {
-        saveAnswer(token, session.attemptId, {
-          questionId,
-          selectedOption: next[questionId].selectedOption,
-          markedForReview: next[questionId].markedForReview,
-        }).catch(() => {});
+        // Don't send timeSpentSeconds here — this fires on every tap (select,
+        // clear, mark-for-review) while still on the question, before the
+        // real elapsed time is known. commitCurrentQuestionTime/handleSubmit
+        // are the only places that compute and persist the actual time, once
+        // the question is left. Sending a stale 0 here can race with those
+        // writes and overwrite the correct value.
+        trackSave(
+          saveAnswer(token, session.attemptId, {
+            questionId,
+            selectedOption: next[questionId].selectedOption,
+            markedForReview: next[questionId].markedForReview,
+          }).catch(() => {})
+        );
       }
       return next;
     });
+  };
+
+  const commitCurrentQuestionTime = () => {
+    if (!currentQuestion || !session) return;
+    const elapsed = (Date.now() - questionEnteredAtRef.current) / 1000;
+    const total = (questionTimeRef.current[currentQuestion.id] ?? 0) + elapsed;
+    questionTimeRef.current[currentQuestion.id] = total;
+    questionEnteredAtRef.current = Date.now();
+
+    const answer = answers[currentQuestion.id];
+    trackSave(
+      saveAnswer(token, session.attemptId, {
+        questionId: currentQuestion.id,
+        selectedOption: answer?.selectedOption ?? null,
+        markedForReview: answer?.markedForReview ?? false,
+        timeSpentSeconds: total,
+      }).catch(() => {})
+    );
+  };
+
+  const goToIndex = (newIndex: number) => {
+    commitCurrentQuestionTime();
+    setIndex(newIndex);
   };
 
   const answeredCount = useMemo(
@@ -185,7 +251,7 @@ export default function TestTakingScreen({ token, testId, nav }: Props) {
               <Pressable
                 key={`${section.name}-${i}`}
                 style={[styles.subjectTab, isActive && styles.subjectTabActive]}
-                onPress={() => setIndex(section.startNo - 1)}
+                onPress={() => goToIndex(section.startNo - 1)}
               >
                 <Text style={[styles.subjectTabText, isActive && styles.subjectTabTextActive]}>
                   {section.name}
@@ -227,12 +293,33 @@ export default function TestTakingScreen({ token, testId, nav }: Props) {
             );
           })}
         </View>
+
+        <Pressable
+          style={styles.clearBtn}
+          onPress={() => persistAnswer(currentQuestion.id, { selectedOption: null })}
+          disabled={currentAnswer.selectedOption === null}
+          hitSlop={8}
+        >
+          <Ionicons
+            name="close-circle-outline"
+            size={15}
+            color={currentAnswer.selectedOption === null ? '#C7C4BA' : ERROR}
+          />
+          <Text
+            style={[
+              styles.clearBtnText,
+              currentAnswer.selectedOption === null && styles.clearBtnTextDisabled,
+            ]}
+          >
+            Clear Response
+          </Text>
+        </Pressable>
       </ScrollView>
 
       <View style={styles.bottomBar}>
         <Pressable
           style={[styles.navBtn, styles.navBtnOutline]}
-          onPress={() => setIndex((i) => Math.max(0, i - 1))}
+          onPress={() => goToIndex(Math.max(0, index - 1))}
           disabled={index === 0}
         >
           <Text style={[styles.navBtnOutlineText, index === 0 && styles.navBtnTextDisabled]}>
@@ -251,7 +338,14 @@ export default function TestTakingScreen({ token, testId, nav }: Props) {
         </Pressable>
         <Pressable
           style={[styles.navBtn, styles.navBtnPrimary]}
-          onPress={() => (isLast ? setShowSubmitModal(true) : setIndex((i) => i + 1))}
+          onPress={() => {
+            if (isLast) {
+              commitCurrentQuestionTime();
+              setShowSubmitModal(true);
+            } else {
+              goToIndex(index + 1);
+            }
+          }}
         >
           <Text style={styles.navBtnPrimaryText}>{isLast ? 'Submit Test' : 'Save & Next'}</Text>
         </Pressable>
@@ -284,7 +378,7 @@ export default function TestTakingScreen({ token, testId, nav }: Props) {
                       isCurrent && styles.paletteCellCurrent,
                     ]}
                     onPress={() => {
-                      setIndex(i);
+                      goToIndex(i);
                       setShowPalette(false);
                     }}
                   >
@@ -509,6 +603,22 @@ const styles = StyleSheet.create({
   optionsList: {
     marginTop: 22,
     gap: 12,
+  },
+  clearBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-end',
+    gap: 5,
+    marginTop: 14,
+    paddingVertical: 4,
+  },
+  clearBtnText: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: ERROR,
+  },
+  clearBtnTextDisabled: {
+    color: '#C7C4BA',
   },
   optionRow: {
     flexDirection: 'row',

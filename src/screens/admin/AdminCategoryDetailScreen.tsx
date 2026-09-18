@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import AdminHeader from '../../components/admin/AdminHeader';
 import PrimaryButton from '../../components/PrimaryButton';
 import { AdminNav } from '../../navigation/adminTypes';
@@ -35,7 +36,7 @@ export default function AdminCategoryDetailScreen({ token, categoryId, nav }: Pr
   }, [load]);
 
   return (
-    <View style={styles.root}>
+    <SafeAreaView style={styles.root} edges={['top']}>
       <AdminHeader
         title={detail?.name ?? 'Category'}
         subtitle={detail?.description}
@@ -114,7 +115,7 @@ export default function AdminCategoryDetailScreen({ token, categoryId, nav }: Pr
           />
         </ScrollView>
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 

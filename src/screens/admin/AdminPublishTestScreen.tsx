@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import AdminHeader from '../../components/admin/AdminHeader';
 import PrimaryButton from '../../components/PrimaryButton';
 import { AdminNav } from '../../navigation/adminTypes';
@@ -69,7 +70,7 @@ export default function AdminPublishTestScreen({ token, testId, nav }: Props) {
   const canPublish = checklist?.checklist.questionsAdded ?? false;
 
   return (
-    <View style={styles.root}>
+    <SafeAreaView style={styles.root} edges={['top']}>
       <AdminHeader title="Publish Test" subtitle="Verify checklist to go live" onBack={() => nav.pop()} />
 
       {loading && (
@@ -132,7 +133,7 @@ export default function AdminPublishTestScreen({ token, testId, nav }: Props) {
           </Pressable>
         </ScrollView>
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 

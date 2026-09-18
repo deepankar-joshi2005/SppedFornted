@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import AdminHeader from '../../components/admin/AdminHeader';
 import StepProgressHeader from '../../components/admin/StepProgressHeader';
 import PrimaryButton from '../../components/PrimaryButton';
@@ -63,7 +64,7 @@ export default function AdminManageQuestionsScreen({ token, testId, nav }: Props
   const target = test?.totalQuestions || questions?.length || 0;
 
   return (
-    <View style={styles.root}>
+    <SafeAreaView style={styles.root} edges={['top']}>
       <AdminHeader
         title="Manage Questions"
         subtitle={test?.title}
@@ -171,7 +172,7 @@ export default function AdminManageQuestionsScreen({ token, testId, nav }: Props
           </View>
         </>
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 

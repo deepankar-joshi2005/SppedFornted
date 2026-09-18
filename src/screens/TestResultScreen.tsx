@@ -1,7 +1,7 @@
-import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Svg, { Circle, G } from 'react-native-svg';
 import { Nav } from '../navigation/types';
 import { AttemptResult, getResult } from '../services/attempts.service';
 import { ERROR, GOLD, MUTED, NAVY } from '../theme/colors';
@@ -13,9 +13,20 @@ type Props = {
 };
 
 const formatTime = (totalSeconds: number): string => {
-  const mins = Math.floor(totalSeconds / 60);
-  const secs = totalSeconds % 60;
+  const safeSeconds = Number.isFinite(totalSeconds) ? Math.max(0, Math.round(totalSeconds)) : 0;
+  const mins = Math.floor(safeSeconds / 60);
+  const secs = safeSeconds % 60;
   return `${mins}:${String(secs).padStart(2, '0')}`;
+};
+
+type PerformanceTier = { label: string; color: string; bg: string };
+
+const getPerformanceTier = (scorePercent: number): PerformanceTier => {
+  if (scorePercent >= 90) return { label: 'Excellent', color: '#2E9E5B', bg: '#E4F5EA' };
+  if (scorePercent >= 75) return { label: 'Very Good', color: '#2E9E5B', bg: '#E4F5EA' };
+  if (scorePercent >= 60) return { label: 'Good', color: GOLD, bg: '#FBF2DE' };
+  if (scorePercent >= 40) return { label: 'Average', color: '#B4790C', bg: '#FDF1DC' };
+  return { label: 'Needs Improvement', color: ERROR, bg: '#FBEAE8' };
 };
 
 export default function TestResultScreen({ token, attemptId, nav }: Props) {
@@ -54,25 +65,7 @@ export default function TestResultScreen({ token, attemptId, nav }: Props) {
 
       {result && (
         <ScrollView contentContainerStyle={styles.scrollContent}>
-          <View style={[styles.scoreCircle, !result.passed && styles.scoreCircleFail]}>
-            <Text style={styles.scorePercent}>{result.scorePercent}%</Text>
-            <Text style={styles.scoreFraction}>
-              Score: {result.score}/{result.totalMarks}
-            </Text>
-          </View>
-
-          <View style={[styles.statusPill, !result.passed && styles.statusPillFail]}>
-            <Text style={[styles.statusText, !result.passed && styles.statusTextFail]}>
-              Status: {result.passed ? 'PASSED' : 'NOT PASSED'}
-            </Text>
-          </View>
-
-          <View style={styles.statsGrid}>
-            <StatCard icon="checkmark" label="Correct" value={`${result.correctCount} Qs`} color="#2E9E5B" />
-            <StatCard icon="close" label="Wrong" value={`${result.wrongCount} Qs`} color={ERROR} />
-            <StatCard icon="remove" label="Skipped" value={`${result.skippedCount} Qs`} color={MUTED} />
-            <StatCard icon="radio-button-on" label="Accuracy" value={`${result.accuracy}%`} color={NAVY} />
-          </View>
+          <ResultBody result={result} />
 
           {result.sectionBreakdown.length > 0 && (
             <View style={styles.sectionBox}>
@@ -95,6 +88,9 @@ export default function TestResultScreen({ token, attemptId, nav }: Props) {
                       ]}
                     />
                   </View>
+                  <Text style={styles.sectionTime}>
+                    Time Spent: {formatTime(section.timeSpentSeconds)}
+                  </Text>
                 </View>
               ))}
             </View>
@@ -139,24 +135,144 @@ export default function TestResultScreen({ token, attemptId, nav }: Props) {
   );
 }
 
-function StatCard({
-  icon,
+function ResultBody({ result }: { result: AttemptResult }) {
+  const tier = getPerformanceTier(result.scorePercent);
+  const totalQs = result.correctCount + result.wrongCount + result.skippedCount;
+  const attemptRate =
+    totalQs > 0 ? Math.round(((result.correctCount + result.wrongCount) / totalQs) * 100) : 0;
+
+  return (
+    <>
+      <View style={[styles.scoreCircle, { borderColor: tier.color, backgroundColor: tier.bg }]}>
+        <Text style={[styles.scoreNumber, { color: tier.color }]}>{result.score}</Text>
+        <Text style={styles.scoreFraction}>out of {result.totalMarks}</Text>
+      </View>
+
+      <View style={[styles.statusPill, { backgroundColor: tier.bg }]}>
+        <Text style={[styles.statusText, { color: tier.color }]}>{tier.label}</Text>
+      </View>
+
+      <View style={styles.analysisCard}>
+        <Text style={styles.analysisTitle}>Attempt Analysis (Overall)</Text>
+        <View style={styles.analysisRow}>
+          <View style={styles.donutWrap}>
+            <AttemptDonut
+              correct={result.correctCount}
+              wrong={result.wrongCount}
+              skipped={result.skippedCount}
+            />
+            <View style={styles.donutCenter} pointerEvents="none">
+              <Text style={styles.donutTotal}>{totalQs}</Text>
+              <Text style={styles.donutTotalLabel}>Total Qs</Text>
+            </View>
+          </View>
+          <View style={styles.legendCol}>
+            <LegendRow color="#2E9E5B" label="Correct" value={result.correctCount} total={totalQs} />
+            <LegendRow color={ERROR} label="Incorrect" value={result.wrongCount} total={totalQs} />
+            <LegendRow
+              color="#D9D6CC"
+              label="Not Answered"
+              value={result.skippedCount}
+              total={totalQs}
+            />
+          </View>
+        </View>
+        <View style={styles.analysisStatsRow}>
+          <View style={styles.analysisStatBox}>
+            <Text style={styles.analysisStatLabel}>Attempt Rate</Text>
+            <Text style={styles.analysisStatValue}>{attemptRate}%</Text>
+          </View>
+          <View style={styles.analysisStatBox}>
+            <Text style={styles.analysisStatLabel}>Accuracy</Text>
+            <Text style={[styles.analysisStatValue, { color: NAVY }]}>{result.accuracy}%</Text>
+          </View>
+        </View>
+      </View>
+    </>
+  );
+}
+
+function AttemptDonut({
+  correct,
+  wrong,
+  skipped,
+  size = 140,
+  strokeWidth = 16,
+}: {
+  correct: number;
+  wrong: number;
+  skipped: number;
+  size?: number;
+  strokeWidth?: number;
+}) {
+  const total = correct + wrong + skipped;
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const center = size / 2;
+  const segments = [
+    { value: correct, color: '#2E9E5B' },
+    { value: wrong, color: ERROR },
+    { value: skipped, color: '#D9D6CC' },
+  ];
+
+  let cumulative = 0;
+
+  return (
+    <Svg width={size} height={size}>
+      <G transform={`rotate(-90 ${center} ${center})`}>
+        <Circle
+          cx={center}
+          cy={center}
+          r={radius}
+          stroke="#EEEDE6"
+          strokeWidth={strokeWidth}
+          fill="transparent"
+        />
+        {total > 0 &&
+          segments.map((seg, i) => {
+            if (seg.value === 0) return null;
+            const segLen = (seg.value / total) * circumference;
+            const dashOffset = -cumulative;
+            cumulative += segLen;
+            return (
+              <Circle
+                key={i}
+                cx={center}
+                cy={center}
+                r={radius}
+                stroke={seg.color}
+                strokeWidth={strokeWidth}
+                strokeDasharray={`${segLen} ${circumference - segLen}`}
+                strokeDashoffset={dashOffset}
+                strokeLinecap={segLen < circumference ? 'butt' : 'round'}
+                fill="transparent"
+              />
+            );
+          })}
+      </G>
+    </Svg>
+  );
+}
+
+function LegendRow({
+  color,
   label,
   value,
-  color,
+  total,
 }: {
-  icon: keyof typeof Ionicons.glyphMap;
-  label: string;
-  value: string;
   color: string;
+  label: string;
+  value: number;
+  total: number;
 }) {
+  const percent = total > 0 ? Math.round((value / total) * 100) : 0;
   return (
-    <View style={styles.statCard}>
-      <View style={[styles.statIconWrap, { backgroundColor: `${color}1A` }]}>
-        <Ionicons name={icon} size={16} color={color} />
-      </View>
-      <Text style={styles.statLabel}>{label}</Text>
-      <Text style={[styles.statValue, { color }]}>{value}</Text>
+    <View style={styles.legendRow}>
+      <View style={[styles.legendDot, { backgroundColor: color }]} />
+      <Text style={styles.legendLabel}>{label}</Text>
+      <Text style={styles.legendValue}>
+        {value} ({percent}%)
+      </Text>
     </View>
   );
 }
@@ -206,12 +322,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginTop: 10,
   },
-  scoreCircleFail: {
-    borderColor: ERROR,
-    backgroundColor: '#FBEAE8',
-  },
-  scorePercent: {
-    fontSize: 38,
+  scoreNumber: {
+    fontSize: 44,
     fontWeight: '800',
     color: NAVY,
   },
@@ -225,54 +337,99 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 6,
     borderRadius: 20,
-    backgroundColor: '#E4F5EA',
-    borderWidth: 1,
-    borderColor: '#2E9E5B',
-  },
-  statusPillFail: {
-    backgroundColor: '#FBEAE8',
-    borderColor: ERROR,
   },
   statusText: {
     fontSize: 12.5,
     fontWeight: '800',
-    color: '#2E9E5B',
   },
-  statusTextFail: {
-    color: ERROR,
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
+  analysisCard: {
     width: '100%',
-    marginTop: 22,
-    gap: 12,
-  },
-  statCard: {
-    width: '47%',
     backgroundColor: '#FFFFFF',
     borderRadius: 14,
-    padding: 14,
+    padding: 16,
+    marginTop: 22,
     borderWidth: 1,
     borderColor: '#EDEBE4',
   },
-  statIconWrap: {
-    width: 30,
-    height: 30,
-    borderRadius: 8,
+  analysisTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: NAVY,
+    marginBottom: 16,
+  },
+  analysisRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 18,
+  },
+  donutWrap: {
+    width: 140,
+    height: 140,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
   },
-  statLabel: {
-    fontSize: 11.5,
+  donutCenter: {
+    position: 'absolute',
+    alignItems: 'center',
+  },
+  donutTotal: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: NAVY,
+  },
+  donutTotalLabel: {
+    fontSize: 11,
     color: MUTED,
   },
-  statValue: {
-    fontSize: 16,
+  legendCol: {
+    flex: 1,
+    gap: 12,
+  },
+  legendRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  legendDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  legendLabel: {
+    flex: 1,
+    fontSize: 12.5,
+    color: '#334155',
+    fontWeight: '600',
+  },
+  legendValue: {
+    fontSize: 12.5,
     fontWeight: '800',
-    marginTop: 2,
+    color: NAVY,
+  },
+  analysisStatsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 18,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#F0EEE7',
+  },
+  analysisStatBox: {
+    flex: 1,
+    backgroundColor: '#F8F7F2',
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  analysisStatLabel: {
+    fontSize: 11,
+    color: MUTED,
+  },
+  analysisStatValue: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#2E9E5B',
+    marginTop: 3,
   },
   sectionBox: {
     width: '100%',
@@ -318,6 +475,11 @@ const styles = StyleSheet.create({
     height: '100%',
     borderRadius: 3,
     backgroundColor: '#2E9E5B',
+  },
+  sectionTime: {
+    fontSize: 11,
+    color: MUTED,
+    marginTop: 6,
   },
   infoBox: {
     width: '100%',

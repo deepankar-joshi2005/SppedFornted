@@ -12,6 +12,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import AdminHeader from '../../components/admin/AdminHeader';
 import ImagePickerBox from '../../components/admin/ImagePickerBox';
 import FormInput from '../../components/FormInput';
@@ -148,17 +149,17 @@ export default function AdminAddQuestionScreen({
 
   if (loading) {
     return (
-      <View style={styles.root}>
+      <SafeAreaView style={styles.root} edges={['top']}>
         <AdminHeader title="Add Question" onBack={() => nav.pop()} />
         <View style={styles.loadingBox}>
           <ActivityIndicator color={NAVY} size="large" />
         </View>
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={styles.root}>
+    <SafeAreaView style={styles.root} edges={['top']}>
       <AdminHeader
         title={isEdit ? 'Edit Question' : 'Add Question'}
         subtitle={subject || 'Select a subject'}
@@ -319,7 +320,7 @@ export default function AdminAddQuestionScreen({
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </View>
+    </SafeAreaView>
   );
 }
 

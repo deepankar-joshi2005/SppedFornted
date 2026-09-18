@@ -2,9 +2,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import NotificationBell from '../components/NotificationBell';
 import { Nav } from '../navigation/types';
 import { getLeaderboard, LeaderboardEntry, LeaderboardResponse } from '../services/leaderboard.service';
-import { ERROR, GOLD, MUTED, NAVY } from '../theme/colors';
+import { CARD_SHADOW, ERROR, GOLD, MUTED, NAVY, SOFT_SHADOW } from '../theme/colors';
 
 type Props = {
   token: string;
@@ -50,7 +51,11 @@ export default function LeaderboardScreen({ token, testId, nav }: Props) {
             </Text>
           )}
         </View>
-        <View style={styles.iconBtn} />
+        <NotificationBell
+          token={token}
+          style={styles.iconBtn}
+          onPress={() => nav.push({ name: 'notifications' })}
+        />
       </View>
 
       {loading && (
@@ -237,16 +242,15 @@ const styles = StyleSheet.create({
     marginTop: 8,
     backgroundColor: '#FFFFFF',
     borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#EDEBE4',
     paddingVertical: 8,
     paddingHorizontal: 10,
     alignItems: 'center',
     width: '100%',
+    ...SOFT_SHADOW,
   },
   podiumRankBadgeBig: {
-    borderColor: NAVY,
     borderWidth: 1.5,
+    borderColor: GOLD,
   },
   podiumRankText: {
     fontSize: 13,
@@ -264,15 +268,15 @@ const styles = StyleSheet.create({
     gap: 12,
     backgroundColor: '#FFFFFF',
     borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#EDEBE4',
     padding: 12,
     marginBottom: 10,
+    ...SOFT_SHADOW,
   },
   rowHighlight: {
-    borderColor: NAVY,
     borderWidth: 1.5,
+    borderColor: NAVY,
     backgroundColor: '#EEF1F7',
+    ...CARD_SHADOW,
   },
   rowRank: {
     fontSize: 13,
