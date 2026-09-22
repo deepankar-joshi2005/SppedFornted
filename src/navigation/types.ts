@@ -11,7 +11,8 @@ export type Route =
   | { name: 'editProfile' }
   | { name: 'notifications' }
   | { name: 'language' }
-  | { name: 'help' };
+  | { name: 'help' }
+  | { name: 'studentReviews' };
 
 export type Nav = {
   push: (route: Route) => void;

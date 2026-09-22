@@ -32,11 +32,71 @@ export interface DashboardCategory {
   iconImage: string | null;
 }
 
+export interface BannerItem {
+  id: string;
+  imageUrl: string;
+  title: string;
+  subtitle: string;
+  linkUrl?: string;
+  tag?: string;
+}
+
+export interface TeacherInfoData {
+  name: string;
+  title: string;
+  designation: string;
+  imageUrl?: string;
+  bio?: string;
+}
+
+export interface LiveMockItem {
+  id: string;
+  title: string;
+  badgeText: string;
+  totalQuestions: number;
+  durationMinutes: number;
+  totalMarks: number;
+  isLive: boolean;
+  category: string;
+}
+
+export interface TrendingExamItem {
+  id: string;
+  name: string;
+  code: string;
+  icon?: string;
+}
+
+export interface ActivityItem {
+  attemptId: string;
+  testId: string;
+  title: string;
+  categoryTag: string;
+  totalQuestions: number;
+  questionsCompleted: number;
+  durationMinutes: number;
+  percent: number;
+}
+
+export interface SuccessStoryItem {
+  id: string;
+  studentName: string;
+  studentImage?: string;
+  examTag: string;
+  reviewText: string;
+}
+
 export interface DashboardData {
   stats: DashboardStats;
   continueTest: ContinueTest | null;
   categories: DashboardCategory[];
   popularSeries: TestSeries[];
+  banners?: BannerItem[];
+  teacherInfo?: TeacherInfoData;
+  liveMocks?: LiveMockItem[];
+  trendingExams?: TrendingExamItem[];
+  myActivities?: ActivityItem[];
+  successStories?: SuccessStoryItem[];
 }
 
 const extractErrorMessage = (error: unknown, fallback: string): string => {

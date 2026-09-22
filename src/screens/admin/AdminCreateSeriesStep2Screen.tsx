@@ -5,6 +5,7 @@ import AdminHeader from '../../components/admin/AdminHeader';
 import StepProgressHeader from '../../components/admin/StepProgressHeader';
 import ToggleRow from '../../components/admin/ToggleRow';
 import FormInput from '../../components/FormInput';
+import DateInputField from '../../components/DateInputField';
 import PrimaryButton from '../../components/PrimaryButton';
 import { AdminNav } from '../../navigation/adminTypes';
 import {
@@ -27,6 +28,8 @@ export default function AdminCreateSeriesStep2Screen({ token, seriesId, nav }: P
   const [endDate, setEndDate] = useState('');
   const [accessType, setAccessType] = useState<AccessType>('paid');
   const [price, setPrice] = useState('');
+  const [coachingPrice, setCoachingPrice] = useState('');
+  const [freeDemoCount, setFreeDemoCount] = useState('1');
   const [isPublic, setIsPublic] = useState(true);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -41,6 +44,8 @@ export default function AdminCreateSeriesStep2Screen({ token, seriesId, nav }: P
         setEndDate(detail.endDate ? detail.endDate.slice(0, 10) : '');
         setAccessType(detail.accessType);
         setPrice(String(detail.price || ''));
+        setCoachingPrice(String(detail.coachingPrice || ''));
+        setFreeDemoCount(String(detail.freeDemoCount ?? 1));
         setIsPublic(detail.isPublic);
       } catch (err) {
         Alert.alert('Failed to load test series', err instanceof Error ? err.message : '');
@@ -60,6 +65,8 @@ export default function AdminCreateSeriesStep2Screen({ token, seriesId, nav }: P
         endDate: endDate || null,
         accessType,
         price: accessType === 'free' ? 0 : Number(price) || 0,
+        coachingPrice: accessType === 'free' ? 0 : Number(coachingPrice) || 0,
+        freeDemoCount: Number(freeDemoCount) >= 0 ? Number(freeDemoCount) : 1,
         isPublic,
       });
       nav.replace({ name: 'seriesPreview', seriesId });
@@ -97,20 +104,20 @@ export default function AdminCreateSeriesStep2Screen({ token, seriesId, nav }: P
           <View style={styles.dateRow}>
             <View style={styles.dateCol}>
               <Text style={styles.label}>Start Date</Text>
-              <FormInput
-                icon="calendar-outline"
-                placeholder="YYYY-MM-DD"
+              <DateInputField
+                label="Start Date"
                 value={startDate}
-                onChangeText={setStartDate}
+                onChange={setStartDate}
+                placeholder="Select start date"
               />
             </View>
             <View style={styles.dateCol}>
               <Text style={styles.label}>End Date</Text>
-              <FormInput
-                icon="calendar-outline"
-                placeholder="Optional"
+              <DateInputField
+                label="End Date"
                 value={endDate}
-                onChangeText={setEndDate}
+                onChange={setEndDate}
+                placeholder="Optional"
               />
             </View>
           </View>
@@ -137,12 +144,30 @@ export default function AdminCreateSeriesStep2Screen({ token, seriesId, nav }: P
 
           {accessType === 'paid' && (
             <>
-              <Text style={styles.label}>Course/Series Base Price (₹)</Text>
+              <Text style={styles.label}>Regular Price for Outsider Students (₹)</Text>
               <FormInput
                 icon="pricetag-outline"
-                placeholder="499"
+                placeholder="e.g. 499"
                 value={price}
                 onChangeText={setPrice}
+                keyboardType="number-pad"
+              />
+
+              <Text style={styles.label}>Discounted Price for Coaching Students (₹)</Text>
+              <FormInput
+                icon="card-outline"
+                placeholder="e.g. 199 (0 for free for coaching students)"
+                value={coachingPrice}
+                onChangeText={setCoachingPrice}
+                keyboardType="number-pad"
+              />
+
+              <Text style={styles.label}>Free Demo Tests Count (in this series)</Text>
+              <FormInput
+                icon="gift-outline"
+                placeholder="e.g. 1 (1st test free to attempt)"
+                value={freeDemoCount}
+                onChangeText={setFreeDemoCount}
                 keyboardType="number-pad"
               />
             </>

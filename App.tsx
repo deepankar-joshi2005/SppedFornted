@@ -21,6 +21,7 @@ import TestListScreen from './src/screens/TestListScreen';
 import TestResultScreen from './src/screens/TestResultScreen';
 import TestTakingScreen from './src/screens/TestTakingScreen';
 import TestsScreen from './src/screens/TestsScreen';
+import StudentReviewsScreen from './src/screens/StudentReviewsScreen';
 import AdminApp from './src/screens/admin/AdminApp';
 import { AuthUser } from './src/services/auth.service';
 import { LanguageProvider } from './src/context/LanguageContext';
@@ -215,6 +216,7 @@ export default function App() {
             {current.name === 'notifications' && <NotificationsScreen token={token} nav={nav} />}
             {current.name === 'language' && <LanguagePreferenceScreen token={token} nav={nav} />}
             {current.name === 'help' && <HelpSupportScreen token={token} nav={nav} />}
+            {current.name === 'studentReviews' && <StudentReviewsScreen token={token} nav={nav} />}
           </View>
 
           {activeTab && <BottomTabBar active={activeTab} onChange={(tab) => nav.resetToTab(tab)} />}

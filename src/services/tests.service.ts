@@ -3,12 +3,17 @@ import api from '../config/api';
 
 export interface TestSeriesSummary {
   category: string;
+  seriesId?: string;
   iconImage: string | null;
   totalTests: number;
   totalQuestions: number;
   durationMinutes: number;
   difficulty: string;
   percentCompleted: number;
+  isPaid?: boolean;
+  price?: number;
+  coachingPrice?: number;
+  isPurchased?: boolean;
 }
 
 export interface TestListItem {
@@ -25,13 +30,28 @@ export interface TestListItem {
   maxAttempts: number;
   attemptsUsed: number;
   canReattempt: boolean;
+  isFreeDemo?: boolean;
+  isLocked?: boolean;
 }
 
 export interface TestListResponse {
   category: string;
+  seriesId?: string;
   seriesTitle: string;
   bannerImage: string | null;
+  isPaid?: boolean;
+  price?: number;
+  coachingPrice?: number;
+  isPurchased?: boolean;
+  isCoachingStudent?: boolean;
   tests: TestListItem[];
+}
+
+export interface TestInstructionSection {
+  name: string;      // e.g. "Part A"
+  subject: string;   // e.g. "General Intelligence and Reasoning"
+  startNo: number;
+  endNo: number;
 }
 
 export interface TestInstructions {
@@ -43,6 +63,12 @@ export interface TestInstructions {
   totalMarks: number;
   durationMinutes: number;
   negativeMarks: number;
+  /** Marks per correct question (optional; computed from totalMarks/totalQuestions if absent) */
+  marksPerQuestion?: number;
+  /** Language admin configured for this test: 'Hindi' | 'English' | 'Both' */
+  language?: string;
+  /** Section breakdown, mirrors subjectSections from the attempt */
+  subjectSections?: TestInstructionSection[];
 }
 
 const authHeaders = (token: string) => ({ headers: { Authorization: `Bearer ${token}` } });

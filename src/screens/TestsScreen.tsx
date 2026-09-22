@@ -101,7 +101,28 @@ export default function TestsScreen({ token, nav }: Props) {
                     <Ionicons name="reader-outline" size={16} color={NAVY} />
                   )}
                 </View>
-                <Text style={styles.cardTitle}>{item.category} {t('test_series_title', 'Test Series')}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.cardTitle}>{item.category} {t('test_series_title', 'Test Series')}</Text>
+                  {item.isPaid ? (
+                    item.isPurchased ? (
+                      <View style={[styles.priceTag, { backgroundColor: '#DCFCE7' }]}>
+                        <Ionicons name="checkmark-circle" size={12} color="#166534" />
+                        <Text style={[styles.priceTagText, { color: '#166534' }]}>Unlocked</Text>
+                      </View>
+                    ) : (
+                      <View style={[styles.priceTag, { backgroundColor: '#FEF3C7' }]}>
+                        <Ionicons name="lock-closed" size={11} color="#92400E" />
+                        <Text style={[styles.priceTagText, { color: '#92400E' }]}>
+                          ₹{item.price}
+                        </Text>
+                      </View>
+                    )
+                  ) : (
+                    <View style={[styles.priceTag, { backgroundColor: '#E0F2FE' }]}>
+                      <Text style={[styles.priceTagText, { color: '#0369A1' }]}>FREE</Text>
+                    </View>
+                  )}
+                </View>
               </View>
               <Ionicons name="chevron-forward" size={18} color={NAVY} />
             </View>
@@ -223,6 +244,20 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '800',
     color: NAVY,
+  },
+  priceTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginTop: 4,
+  },
+  priceTagText: {
+    fontSize: 11,
+    fontWeight: '700',
   },
   metaRow: {
     flexDirection: 'row',

@@ -187,10 +187,29 @@ export default function AdminStudentDetailScreen({ token, studentId, nav }: Prop
               <Text style={styles.statLabel}>Avg Score</Text>
             </View>
             <View style={styles.statCard}>
-              <Text style={styles.statValue}>{detail.stats.avgAccuracy}%</Text>
-              <Text style={styles.statLabel}>Avg Accuracy</Text>
+              <Text style={[styles.statValue, { color: '#2E9E5B' }]}>₹{detail.stats.totalSpent || 0}</Text>
+              <Text style={styles.statLabel}>Total Spent ({detail.stats.purchasesCount || 0} bought)</Text>
             </View>
           </View>
+
+          {detail.purchasedSeries && detail.purchasedSeries.length > 0 && (
+            <>
+              <Text style={styles.sectionTitle}>Purchased Test Series</Text>
+              <View style={{ marginBottom: 20, gap: 10 }}>
+                {detail.purchasedSeries.map((p) => (
+                  <View key={p.purchaseId} style={styles.card}>
+                    <View style={styles.cardTopRow}>
+                      <View style={styles.cardTextWrap}>
+                        <Text style={styles.cardTitle}>{p.title}</Text>
+                        <Text style={styles.cardMeta}>Purchased on {formatDate(p.purchasedAt)}</Text>
+                      </View>
+                      <Text style={[styles.score, { color: '#2E9E5B' }]}>₹{p.amountPaid}</Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            </>
+          )}
 
           {detail.weakAreas.length > 0 && (
             <>

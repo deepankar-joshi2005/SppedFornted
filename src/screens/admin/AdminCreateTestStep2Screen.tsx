@@ -5,6 +5,7 @@ import AdminHeader from '../../components/admin/AdminHeader';
 import StepProgressHeader from '../../components/admin/StepProgressHeader';
 import ToggleRow from '../../components/admin/ToggleRow';
 import FormInput from '../../components/FormInput';
+import DateInputField from '../../components/DateInputField';
 import PrimaryButton from '../../components/PrimaryButton';
 import { AdminNav } from '../../navigation/adminTypes';
 import {
@@ -212,20 +213,20 @@ export default function AdminCreateTestStep2Screen({ token, testId, nav }: Props
           <View style={styles.row}>
             <View style={styles.col}>
               <Text style={styles.label}>Start Date</Text>
-              <FormInput
-                icon="calendar-outline"
-                placeholder="YYYY-MM-DD"
+              <DateInputField
+                label="Start Date"
                 value={startDate}
-                onChangeText={setStartDate}
+                onChange={setStartDate}
+                placeholder="Select start date"
               />
             </View>
             <View style={styles.col}>
               <Text style={styles.label}>End Date</Text>
-              <FormInput
-                icon="calendar-outline"
-                placeholder="Optional"
+              <DateInputField
+                label="End Date"
                 value={endDate}
-                onChangeText={setEndDate}
+                onChange={setEndDate}
+                placeholder="Optional"
               />
             </View>
           </View>

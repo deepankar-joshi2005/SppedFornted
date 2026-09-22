@@ -12,6 +12,8 @@ export interface AdminStudentListItem {
   joinedAt: string;
   attemptCount: number;
   avgScore: number;
+  purchasesCount?: number;
+  totalSpent?: number;
 }
 
 export interface AdminSectionBreakdown {
@@ -39,6 +41,14 @@ export interface AdminStudentWeakArea {
   total: number;
 }
 
+export interface AdminStudentPurchasedSeries {
+  purchaseId: string;
+  seriesId: string;
+  title: string;
+  amountPaid: number;
+  purchasedAt: string;
+}
+
 export interface AdminStudentDetail {
   id: string;
   name: string;
@@ -52,7 +62,10 @@ export interface AdminStudentDetail {
     attemptCount: number;
     avgScore: number;
     avgAccuracy: number;
+    purchasesCount?: number;
+    totalSpent?: number;
   };
+  purchasedSeries?: AdminStudentPurchasedSeries[];
   weakAreas: AdminStudentWeakArea[];
   attempts: AdminStudentAttempt[];
 }

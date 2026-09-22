@@ -83,6 +83,23 @@ export default function AdminStudentsScreen({ token, nav }: Props) {
           <RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={NAVY} />
         }
       >
+        {students && (
+          <View style={styles.revenueCard}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.revenueCardLabel}>Total Sales & Revenue Earned</Text>
+              <Text style={styles.revenueCardValue}>
+                ₹{students.reduce((sum, s) => sum + (s.totalSpent || 0), 0)}
+              </Text>
+            </View>
+            <View style={styles.revenueBadge}>
+              <Ionicons name="cash-outline" size={18} color="#2E9E5B" />
+              <Text style={styles.revenueBadgeText}>
+                {students.reduce((sum, s) => sum + (s.purchasesCount || 0), 0)} Purchases
+              </Text>
+            </View>
+          </View>
+        )}
+
         {loading && !students && (
           <View style={styles.loadingBox}>
             <ActivityIndicator color={NAVY} size="large" />
@@ -133,7 +150,7 @@ export default function AdminStudentsScreen({ token, nav }: Props) {
             <View style={styles.statsCol}>
               <Text style={styles.statValue}>{student.attemptCount}</Text>
               <Text style={styles.statLabel}>Attempts</Text>
-              <Text style={styles.avgScore}>{student.avgScore}% avg</Text>
+              <Text style={[styles.avgScore, { color: '#2E9E5B' }]}>₹{student.totalSpent || 0}</Text>
             </View>
           </Pressable>
         ))}
@@ -211,4 +228,41 @@ const styles = StyleSheet.create({
   statLabel: { fontSize: 10, color: MUTED },
   avgScore: { fontSize: 11, fontWeight: '700', color: GOLD, marginTop: 4 },
   emptyText: { textAlign: 'center', color: MUTED, marginTop: 30 },
+  revenueCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#0F172A',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 4,
+  },
+  revenueCardLabel: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#94A3B8',
+    textTransform: 'uppercase',
+  },
+  revenueCardValue: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#38BDF8',
+    marginTop: 2,
+  },
+  revenueBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#1E293B',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  revenueBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#F8FAFC',
+  },
 });

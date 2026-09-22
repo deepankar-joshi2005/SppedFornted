@@ -93,6 +93,17 @@ export interface HistoryItem {
 }
 
 export class CoachingOnlyError extends Error {}
+export class TestSeriesPaidError extends Error {
+  seriesId: string;
+  price: number;
+  isCoachingStudent: boolean;
+  constructor(message: string, seriesId: string, price: number, isCoachingStudent: boolean) {
+    super(message);
+    this.seriesId = seriesId;
+    this.price = price;
+    this.isCoachingStudent = isCoachingStudent;
+  }
+}
 
 const authHeaders = (token: string) => ({ headers: { Authorization: `Bearer ${token}` } });
 
@@ -117,6 +128,10 @@ export const startAttempt = async (
   } catch (error) {
     if (isAxiosError(error) && error.response?.data?.code === 'COACHING_ONLY') {
       throw new CoachingOnlyError(error.response.data.message);
+    }
+    if (isAxiosError(error) && error.response?.data?.code === 'TEST_SERIES_PAID') {
+      const d = error.response.data;
+      throw new TestSeriesPaidError(d.message, d.seriesId, d.price, d.isCoachingStudent);
     }
     throw new Error(extractErrorMessage(error, 'Failed to start test. Please try again.'));
   }

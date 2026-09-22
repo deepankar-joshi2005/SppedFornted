@@ -5,8 +5,8 @@ import AdminHeader from '../../components/admin/AdminHeader';
 import PrimaryButton from '../../components/PrimaryButton';
 import { AdminNav } from '../../navigation/adminTypes';
 import { AdminSeriesTestItem, getSeriesTests } from '../../services/admin/series.service';
-import { publishTest } from '../../services/admin/tests.service';
-import { GOLD, MUTED, NAVY } from '../../theme/colors';
+import { deleteTest, publishTest } from '../../services/admin/tests.service';
+import { ERROR, GOLD, MUTED, NAVY } from '../../theme/colors';
 
 type Props = {
   token: string;
@@ -46,6 +46,29 @@ export default function AdminSeriesTestsScreen({ token, seriesId, nav }: Props) 
     } catch (err) {
       Alert.alert('Cannot Publish', err instanceof Error ? err.message : 'Failed to publish test.');
     }
+  };
+
+  const handleDeleteTest = (testId: string, testTitle: string) => {
+    Alert.alert(
+      'Delete Test',
+      `Are you sure you want to delete "${testTitle}"? This will permanently remove the test and its questions. This cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteTest(token, testId);
+              Alert.alert('Deleted', `"${testTitle}" has been deleted.`);
+              load();
+            } catch (err) {
+              Alert.alert('Cannot Delete', err instanceof Error ? err.message : 'Failed to delete test.');
+            }
+          },
+        },
+      ]
+    );
   };
 
   const totalQuestions = (tests ?? []).reduce((sum, t) => sum + t.totalQuestions, 0);
@@ -130,6 +153,9 @@ export default function AdminSeriesTestsScreen({ token, seriesId, nav }: Props) 
                   </Pressable>
                   <Pressable onPress={() => nav.push({ name: 'manageQuestions', testId: t.id })}>
                     <Text style={styles.linkText}>Questions</Text>
+                  </Pressable>
+                  <Pressable onPress={() => handleDeleteTest(t.id, t.title)}>
+                    <Text style={[styles.linkText, { color: ERROR }]}>Delete</Text>
                   </Pressable>
                 </View>
               </View>

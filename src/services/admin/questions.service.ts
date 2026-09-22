@@ -145,6 +145,23 @@ export const deleteQuestion = async (token: string, questionId: string): Promise
   }
 };
 
+export const bulkAddToTest = async (
+  token: string,
+  questionIds: string[],
+  testId: string
+): Promise<{ added: number; message: string }> => {
+  try {
+    const response = await api.post<{ added: number; message: string }>(
+      '/admin/questions/bulk-add-to-test',
+      { testId, questionIds },
+      authHeaders(token)
+    );
+    return response.data;
+  } catch (error) {
+    throw new Error(extractErrorMessage(error, 'Failed to bulk add questions to test.'));
+  }
+};
+
 export const addToTest = async (
   token: string,
   questionId: string,

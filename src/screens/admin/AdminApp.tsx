@@ -29,6 +29,9 @@ import AdminSubjectSectionsScreen from './AdminSubjectSectionsScreen';
 import AdminStudentPreviewScreen from './AdminStudentPreviewScreen';
 import AdminPublishTestScreen from './AdminPublishTestScreen';
 import AdminPublishSuccessScreen from './AdminPublishSuccessScreen';
+import AdminBannersScreen from './AdminBannersScreen';
+import AdminTeacherInfoScreen from './AdminTeacherInfoScreen';
+import AdminSuccessStoriesScreen from './AdminSuccessStoriesScreen';
 
 type Props = {
   user: AuthUser;
@@ -189,6 +192,9 @@ export default function AdminApp({ user, token, onLogout }: Props) {
         {current.name === 'publishSuccess' && (
           <AdminPublishSuccessScreen token={token} testId={current.testId} nav={nav} />
         )}
+        {current.name === 'banners' && <AdminBannersScreen token={token} nav={nav} />}
+        {current.name === 'teacherInfo' && <AdminTeacherInfoScreen token={token} nav={nav} />}
+        {current.name === 'successStories' && <AdminSuccessStoriesScreen token={token} nav={nav} />}
       </View>
 
       {showTabBar && activeTab && (

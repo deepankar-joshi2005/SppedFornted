@@ -40,6 +40,8 @@ export interface AdminSeriesDetail {
   difficulty: string;
   accessType: AccessType;
   price: number;
+  coachingPrice: number;
+  freeDemoCount: number;
   validityMonths: number;
   startDate: string | null;
   endDate: string | null;
@@ -73,6 +75,8 @@ export interface UpdateSeriesPayload {
   endDate?: string | null;
   accessType?: AccessType;
   price?: number;
+  coachingPrice?: number;
+  freeDemoCount?: number;
   isPublic?: boolean;
 }
 

@@ -88,6 +88,24 @@ export default function AdminHomeScreen({ user, token, nav }: Props) {
       icon: 'cloud-upload-outline',
       onPress: () => nav.push({ name: 'seriesList' }),
     },
+    {
+      key: 'manageBanners',
+      label: 'Home Banners',
+      icon: 'images-outline',
+      onPress: () => nav.push({ name: 'banners' }),
+    },
+    {
+      key: 'manageTeacher',
+      label: 'Admin Header Info',
+      icon: 'person-circle-outline',
+      onPress: () => nav.push({ name: 'teacherInfo' }),
+    },
+    {
+      key: 'manageStories',
+      label: 'Success Stories',
+      icon: 'star-outline',
+      onPress: () => nav.push({ name: 'successStories' }),
+    },
   ];
 
   const initials = user.name
