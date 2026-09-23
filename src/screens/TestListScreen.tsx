@@ -16,7 +16,6 @@ import RazorpayCheckoutModal from '../components/RazorpayCheckoutModal';
 import { resolveAssetUrl } from '../config/api';
 import { Nav } from '../navigation/types';
 import {
-  buyTestSeries,
   createRazorpayOrder,
   RazorpayOrderResponse,
   verifyRazorpayPayment,
@@ -93,16 +92,7 @@ export default function TestListScreen({ token, category, nav }: Props) {
       setBuyModalVisible(false);
       setRazorpayVisible(true);
     } catch (err) {
-      // Fallback to direct purchase if order creation fails or offline
-      try {
-        await buyTestSeries(token, seriesData.seriesId);
-        setBuyModalVisible(false);
-        load(true);
-      } catch (fallbackErr) {
-        setBuyError(
-          fallbackErr instanceof Error ? fallbackErr.message : 'Payment order creation failed.'
-        );
-      }
+      setBuyError(err instanceof Error ? err.message : 'Payment order creation failed.');
     } finally {
       setBuying(false);
     }

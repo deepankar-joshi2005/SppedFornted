@@ -163,38 +163,7 @@ export default function HomeScreen({ user, token, nav }: Props) {
     designation: 'Founder & Chief Instructor',
   };
 
-  const bannersList: BannerItem[] = data?.banners?.length
-    ? data.banners
-    : [
-        {
-          id: 'b1',
-          imageUrl: '',
-          title: '2 MILLION CELEBRATION TEST',
-          subtitle: 'Rank 1 to 51 Students Cash Prize ₹51,000',
-          tag: 'By Admin Sir',
-        },
-        {
-          id: 'b2',
-          imageUrl: '',
-          title: 'ALL INDIA LIVE MOCK TEST',
-          subtitle: 'Test your speed & accuracy across India',
-          tag: 'Speed Special',
-        },
-        {
-          id: 'b3',
-          imageUrl: '',
-          title: 'SSC CGL / CHSL TARGET BATCH',
-          subtitle: 'Complete mock papers with detailed solutions',
-          tag: 'New Batch',
-        },
-        {
-          id: 'b4',
-          imageUrl: '',
-          title: 'RRB NTPC SUPER BOOST TEST',
-          subtitle: '90 Mins CBT 1 Practice Papers',
-          tag: 'Trending',
-        },
-      ];
+  const bannersList: BannerItem[] = data?.banners?.length ? data.banners : [];
 
   const liveMocksList: LiveMockItem[] = data?.liveMocks !== undefined
     ? data.liveMocks
@@ -454,71 +423,73 @@ export default function HomeScreen({ user, token, nav }: Props) {
         )}
 
         {/* Top Banners Carousel */}
-        <View style={styles.bannersSection}>
-          <FlatList
-            ref={bannerFlatListRef}
-            data={bannersList}
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            keyExtractor={(item) => item.id}
-            onMomentumScrollEnd={(e) => {
-              const index = Math.round(e.nativeEvent.contentOffset.x / (SCREEN_WIDTH - 36));
-              setActiveBannerIndex(index);
-            }}
-            renderItem={({ item }) => (
-              <View style={styles.bannerCardContainer}>
-                {item.imageUrl ? (
-                  <Image
-                    source={{ uri: resolveAssetUrl(item.imageUrl) }}
-                    style={styles.bannerImage}
-                    resizeMode="cover"
-                  />
-                ) : (
-                  <View style={styles.bannerGradientCard}>
-                    <View style={styles.bannerBadgeRow}>
-                      <View style={styles.bannerLogoBadge}>
-                        <Ionicons name="trending-up" size={14} color="#FFF" />
-                        <Text style={styles.bannerLogoText}>Speed Education</Text>
+        {bannersList.length > 0 && (
+          <View style={styles.bannersSection}>
+            <FlatList
+              ref={bannerFlatListRef}
+              data={bannersList}
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              keyExtractor={(item) => item.id}
+              onMomentumScrollEnd={(e) => {
+                const index = Math.round(e.nativeEvent.contentOffset.x / (SCREEN_WIDTH - 36));
+                setActiveBannerIndex(index);
+              }}
+              renderItem={({ item }) => (
+                <View style={styles.bannerCardContainer}>
+                  {item.imageUrl ? (
+                    <Image
+                      source={{ uri: resolveAssetUrl(item.imageUrl) }}
+                      style={styles.bannerImage}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <View style={styles.bannerGradientCard}>
+                      <View style={styles.bannerBadgeRow}>
+                        <View style={styles.bannerLogoBadge}>
+                          <Ionicons name="trending-up" size={14} color="#FFF" />
+                          <Text style={styles.bannerLogoText}>Speed Education</Text>
+                        </View>
+                        {item.tag && <Text style={styles.bannerTagText}>{item.tag}</Text>}
                       </View>
-                      {item.tag && <Text style={styles.bannerTagText}>{item.tag}</Text>}
-                    </View>
-                    <Text style={styles.bannerMainTitle} numberOfLines={2}>
-                      {item.title}
-                    </Text>
-                    <Text style={styles.bannerSubTitle} numberOfLines={2}>
-                      {item.subtitle}
-                    </Text>
-                    <View style={styles.bannerActionRow}>
-                      <View style={styles.prizePill}>
-                        <Text style={styles.prizePillText}>SPECIAL TEST</Text>
+                      <Text style={styles.bannerMainTitle} numberOfLines={2}>
+                        {item.title}
+                      </Text>
+                      <Text style={styles.bannerSubTitle} numberOfLines={2}>
+                        {item.subtitle}
+                      </Text>
+                      <View style={styles.bannerActionRow}>
+                        <View style={styles.prizePill}>
+                          <Text style={styles.prizePillText}>SPECIAL TEST</Text>
+                        </View>
+                        <Pressable
+                          style={styles.watchVideoBtn}
+                          onPress={() => nav.resetToTab('tests')}
+                        >
+                          <Ionicons name="play-circle" size={16} color="#FFF" />
+                          <Text style={styles.watchVideoText}>START NOW</Text>
+                        </Pressable>
                       </View>
-                      <Pressable
-                        style={styles.watchVideoBtn}
-                        onPress={() => nav.resetToTab('tests')}
-                      >
-                        <Ionicons name="play-circle" size={16} color="#FFF" />
-                        <Text style={styles.watchVideoText}>START NOW</Text>
-                      </Pressable>
                     </View>
-                  </View>
-                )}
-              </View>
-            )}
-          />
-          {/* Banner Indicators */}
-          <View style={styles.indicatorRow}>
-            {bannersList.map((_, i) => (
-              <View
-                key={i}
-                style={[
-                  styles.indicatorDot,
-                  activeBannerIndex === i && styles.indicatorDotActive,
-                ]}
-              />
-            ))}
+                  )}
+                </View>
+              )}
+            />
+            {/* Banner Indicators */}
+            <View style={styles.indicatorRow}>
+              {bannersList.map((_, i) => (
+                <View
+                  key={i}
+                  style={[
+                    styles.indicatorDot,
+                    activeBannerIndex === i && styles.indicatorDotActive,
+                  ]}
+                />
+              ))}
+            </View>
           </View>
-        </View>
+        )}
 
         {/* Quick Test Types Grid */}
         <View style={styles.quickGridCard}>

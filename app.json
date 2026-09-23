@@ -15,7 +15,11 @@
         "backgroundColor": "#141414",
         "foregroundImage": "./assets/android-icon-foreground.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -44,6 +48,12 @@
       "eas": {
         "projectId": "fca2da59-30fe-42eb-bf88-8984dfc356d5"
       }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/fca2da59-30fe-42eb-bf88-8984dfc356d5"
     }
   }
 }

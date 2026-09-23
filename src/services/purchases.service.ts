@@ -1,17 +1,6 @@
 import { isAxiosError } from 'axios';
 import api from '../config/api';
 
-export interface PurchaseItem {
-  _id: string;
-  user: string;
-  testSeries: string;
-  amountPaid: number;
-  isCoachingStudent: boolean;
-  paymentId: string;
-  status: string;
-  createdAt: string;
-}
-
 export interface RazorpayOrderResponse {
   orderId: string;
   amount: number;
@@ -71,18 +60,6 @@ export const verifyRazorpayPayment = async (
     return res.data;
   } catch (err) {
     throw new Error(extractError(err, 'Payment verification failed.'));
-  }
-};
-
-export const buyTestSeries = async (
-  token: string,
-  testSeriesId: string
-): Promise<{ message: string; purchase: PurchaseItem; purchasedSeries: string[] }> => {
-  try {
-    const res = await api.post('/purchases/buy', { testSeriesId }, authHeaders(token));
-    return res.data;
-  } catch (err) {
-    throw new Error(extractError(err, 'Failed to complete test series purchase.'));
   }
 };
 

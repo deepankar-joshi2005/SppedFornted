@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import WebView from 'react-native-webview';
 import { RazorpayOrderResponse } from '../services/purchases.service';
 import { NAVY } from '../theme/colors';
@@ -56,12 +57,13 @@ export default function RazorpayCheckoutModal({
 
   return (
     <Modal visible={visible} animationType="slide" transparent={false}>
-      <View style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Razorpay Secure Payment</Text>
           <Pressable style={styles.closeBtn} onPress={onCancel}>
-            <Ionicons name="close" size={24} color="#FFF" />
+            <Ionicons name="chevron-back" size={24} color={NAVY} />
           </Pressable>
+          <Text style={styles.headerTitle}>Razorpay Secure Payment</Text>
+          <View style={styles.closeBtn} />
         </View>
 
         <WebView
@@ -69,6 +71,9 @@ export default function RazorpayCheckoutModal({
           source={{ html }}
           onMessage={handleMessage}
           style={{ flex: 1 }}
+          javaScriptEnabled={true}
+          domStorageEnabled={true}
+          mixedContentMode="always"
           startInLoadingState
           renderLoading={() => (
             <View style={styles.loadingContainer}>
@@ -76,8 +81,9 @@ export default function RazorpayCheckoutModal({
               <Text style={styles.loadingText}>Opening Razorpay Payment Checkout...</Text>
             </View>
           )}
+          onError={() => onError('Failed to load payment page. Please try again.')}
         />
-      </View>
+      </SafeAreaView>
     </Modal>
   );
 }
@@ -88,20 +94,25 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5F4EF',
   },
   header: {
-    height: 56,
-    backgroundColor: NAVY,
+    height: 52,
+    backgroundColor: '#F5F4EF',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
+    paddingHorizontal: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EDEBE4',
   },
   headerTitle: {
-    color: '#FFFFFF',
+    color: NAVY,
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   closeBtn: {
-    padding: 6,
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   loadingContainer: {
     position: 'absolute',

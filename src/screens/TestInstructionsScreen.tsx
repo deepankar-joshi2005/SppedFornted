@@ -16,7 +16,6 @@ import { Nav } from '../navigation/types';
 import { CoachingOnlyError, TestSeriesPaidError, startAttempt } from '../services/attempts.service';
 import { getTestInstructions, TestInstructions } from '../services/tests.service';
 import {
-  buyTestSeries,
   createRazorpayOrder,
   RazorpayOrderResponse,
   verifyRazorpayPayment,
@@ -264,14 +263,10 @@ export default function TestInstructionsScreen({ token, testId, nav }: Props) {
       setPayModalInfo((prev) => ({ ...prev, visible: false }));
       setRazorpayVisible(true);
     } catch (err) {
-      try {
-        await buyTestSeries(token, payModalInfo.seriesId);
-        Alert.alert('Unlocked! 🎉', 'Test Series unlocked successfully! Starting test...');
-        setPayModalInfo({ visible: false, seriesId: '', price: 0, isCoachingStudent: false });
-        handleBegin();
-      } catch (fallbackErr) {
-        Alert.alert('Purchase Failed', fallbackErr instanceof Error ? fallbackErr.message : 'Could not complete purchase.');
-      }
+      Alert.alert(
+        'Could Not Start Payment',
+        err instanceof Error ? err.message : 'Could not start payment. Please try again.'
+      );
     } finally {
       setBuying(false);
     }
