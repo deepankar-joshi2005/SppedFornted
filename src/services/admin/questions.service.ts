@@ -11,10 +11,13 @@ export interface AdminQuestion {
   subject: string;
   topic: string;
   text: string;
+  textHindi: string;
   image: string | null;
   options: string[];
+  optionsHindi: string[];
   correctOptionIndex: number;
   explanation: string;
+  explanationHindi: string;
   difficulty: QuestionDifficulty;
   marks: number;
   negativeMarks: number;
@@ -33,10 +36,13 @@ export interface QuestionPayload {
   subject: string;
   topic?: string;
   text: string;
+  textHindi?: string;
   image?: string | null;
   options: string[];
+  optionsHindi?: string[];
   correctOptionIndex: number;
   explanation?: string;
+  explanationHindi?: string;
   difficulty?: QuestionDifficulty;
   marks?: number;
   negativeMarks?: number;

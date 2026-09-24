@@ -32,6 +32,8 @@ import AdminPublishSuccessScreen from './AdminPublishSuccessScreen';
 import AdminBannersScreen from './AdminBannersScreen';
 import AdminTeacherInfoScreen from './AdminTeacherInfoScreen';
 import AdminSuccessStoriesScreen from './AdminSuccessStoriesScreen';
+import AdminPYQScreen from './AdminPYQScreen';
+import AdminEBooksScreen from './AdminEBooksScreen';
 
 type Props = {
   user: AuthUser;
@@ -195,6 +197,8 @@ export default function AdminApp({ user, token, onLogout }: Props) {
         {current.name === 'banners' && <AdminBannersScreen token={token} nav={nav} />}
         {current.name === 'teacherInfo' && <AdminTeacherInfoScreen token={token} nav={nav} />}
         {current.name === 'successStories' && <AdminSuccessStoriesScreen token={token} nav={nav} />}
+        {current.name === 'pyq' && <AdminPYQScreen token={token} nav={nav} />}
+        {current.name === 'ebooks' && <AdminEBooksScreen token={token} nav={nav} />}
       </View>
 
       {showTabBar && activeTab && (

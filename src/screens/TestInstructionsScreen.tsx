@@ -236,7 +236,7 @@ export default function TestInstructionsScreen({ token, testId, nav }: Props) {
     setError('');
     try {
       const result = await startAttempt(token, testId);
-      nav.push({ name: 'testTaking', attemptId: result.attemptId, testId });
+      nav.push({ name: 'testTaking', attemptId: result.attemptId, testId, language });
     } catch (err) {
       if (err instanceof CoachingOnlyError) {
         Alert.alert('Coaching Students Only', err.message);

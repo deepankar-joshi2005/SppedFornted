@@ -71,6 +71,17 @@ export interface TestInstructions {
   subjectSections?: TestInstructionSection[];
 }
 
+export interface FreeTestItem {
+  id: string;
+  title: string;
+  category: string;
+  seriesTitle: string;
+  totalQuestions: number;
+  durationMinutes: number;
+  totalMarks: number;
+  difficulty: string;
+}
+
 const authHeaders = (token: string) => ({ headers: { Authorization: `Bearer ${token}` } });
 
 const extractErrorMessage = (error: unknown, fallback: string): string => {
@@ -101,6 +112,15 @@ export const getTestsByCategory = async (
     return response.data;
   } catch (error) {
     throw new Error(extractErrorMessage(error, 'Failed to load tests. Please try again.'));
+  }
+};
+
+export const getFreeTests = async (token: string): Promise<FreeTestItem[]> => {
+  try {
+    const response = await api.get<FreeTestItem[]>('/tests/free', authHeaders(token));
+    return response.data;
+  } catch (error) {
+    throw new Error(extractErrorMessage(error, 'Failed to load free tests. Please try again.'));
   }
 };
 

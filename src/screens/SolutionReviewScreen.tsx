@@ -126,6 +126,7 @@ export default function SolutionReviewScreen({ token, attemptId, nav }: Props) {
   const [error, setError] = useState('');
   const [fullView, setFullView] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [language, setLanguage] = useState<'Hindi' | 'English'>('English');
 
   useEffect(() => {
     if (Platform.OS === 'web') return;
@@ -196,6 +197,28 @@ export default function SolutionReviewScreen({ token, attemptId, nav }: Props) {
         <View style={styles.headerActions}>
           {!!data && (
             <>
+              <View style={styles.langToggle}>
+                <Pressable
+                  style={[styles.langToggleBtn, language === 'English' && styles.langToggleBtnActive]}
+                  onPress={() => setLanguage('English')}
+                >
+                  <Text
+                    style={[styles.langToggleText, language === 'English' && styles.langToggleTextActive]}
+                  >
+                    EN
+                  </Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.langToggleBtn, language === 'Hindi' && styles.langToggleBtnActive]}
+                  onPress={() => setLanguage('Hindi')}
+                >
+                  <Text
+                    style={[styles.langToggleText, language === 'Hindi' && styles.langToggleTextActive]}
+                  >
+                    हिं
+                  </Text>
+                </Pressable>
+              </View>
               <Pressable
                 style={styles.iconBtn}
                 onPress={() => setFullView((v) => !v)}
@@ -290,7 +313,7 @@ export default function SolutionReviewScreen({ token, attemptId, nav }: Props) {
           </View>
 
           <ScrollView contentContainerStyle={styles.scrollContent}>
-            <QuestionBlock question={question} />
+            <QuestionBlock question={question} language={language} />
           </ScrollView>
 
           <View style={styles.bottomBar}>
@@ -329,7 +352,7 @@ export default function SolutionReviewScreen({ token, attemptId, nav }: Props) {
                   Question {q.index} of {q.total}
                 </Text>
               </View>
-              <QuestionBlock question={q} />
+              <QuestionBlock question={q} language={language} />
             </View>
           ))}
         </ScrollView>
@@ -338,13 +361,26 @@ export default function SolutionReviewScreen({ token, attemptId, nav }: Props) {
   );
 }
 
-function QuestionBlock({ question }: { question: SolutionQuestion }) {
+function QuestionBlock({
+  question,
+  language,
+}: {
+  question: SolutionQuestion;
+  language: 'Hindi' | 'English';
+}) {
+  const displayedText =
+    language === 'Hindi' && question.textHindi ? question.textHindi : question.text;
+  const displayedOptions =
+    language === 'Hindi' && question.optionsHindi ? question.optionsHindi : question.options;
+  const displayedExplanation =
+    language === 'Hindi' && question.explanationHindi ? question.explanationHindi : question.explanation;
+
   return (
     <>
-      <Text style={styles.questionText}>{question.text}</Text>
+      <Text style={styles.questionText}>{displayedText}</Text>
 
       <View style={styles.optionsList}>
-        {question.options.map((option, optIdx) => {
+        {displayedOptions.map((option, optIdx) => {
           const isCorrectOption = optIdx === question.correctOptionIndex;
           const isSelected = optIdx === question.selectedOption;
           const showWrong = isSelected && !isCorrectOption;
@@ -384,10 +420,10 @@ function QuestionBlock({ question }: { question: SolutionQuestion }) {
         })}
       </View>
 
-      {!!question.explanation && (
+      {!!displayedExplanation && (
         <View style={styles.explanationBox}>
           <Text style={styles.explanationTitle}>Detailed Solution & Concept:</Text>
-          <Text style={styles.explanationText}>{question.explanation}</Text>
+          <Text style={styles.explanationText}>{displayedExplanation}</Text>
         </View>
       )}
     </>
@@ -416,6 +452,30 @@ const styles = StyleSheet.create({
   headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 4,
+  },
+  langToggle: {
+    flexDirection: 'row',
+    backgroundColor: '#EEEDE6',
+    borderRadius: 14,
+    padding: 2,
+    marginRight: 4,
+  },
+  langToggleBtn: {
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 12,
+  },
+  langToggleBtnActive: {
+    backgroundColor: NAVY,
+  },
+  langToggleText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: MUTED,
+  },
+  langToggleTextActive: {
+    color: '#FFFFFF',
   },
   headerTitleWrap: {
     flex: 1,

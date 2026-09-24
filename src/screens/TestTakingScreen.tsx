@@ -3,6 +3,8 @@ import * as ScreenCapture from 'expo-screen-capture';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Animated,
+  Dimensions,
   Modal,
   Platform,
   Pressable,
@@ -25,12 +27,30 @@ import { ERROR, GOLD, MUTED, NAVY } from '../theme/colors';
 type Props = {
   token: string;
   testId: string;
+  initialLanguage?: 'Hindi' | 'English';
   nav: Nav;
 };
 
 type AnswerState = { selectedOption: number | null; markedForReview: boolean };
+type QStatus = 'attempted' | 'marked' | 'notAnswered' | 'notVisited';
 
 const OPTION_LETTERS = ['A', 'B', 'C', 'D'];
+const SCREEN_WIDTH = Dimensions.get('window').width;
+const PALETTE_WIDTH = SCREEN_WIDTH * 0.7;
+
+const STATUS_COLORS: Record<QStatus, string> = {
+  attempted: '#22C55E',
+  marked: '#EF4444',
+  notAnswered: '#3B82F6',
+  notVisited: '#FFFFFF',
+};
+
+const STATUS_LABELS: Record<QStatus, string> = {
+  attempted: 'Attempted',
+  marked: 'Marked for Review',
+  notAnswered: 'Not Attempted',
+  notVisited: 'Not Visited',
+};
 
 const formatTime = (totalSeconds: number): string => {
   const clamped = Math.max(0, totalSeconds);
@@ -39,23 +59,50 @@ const formatTime = (totalSeconds: number): string => {
   return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
 };
 
-export default function TestTakingScreen({ token, testId, nav }: Props) {
+export default function TestTakingScreen({ token, testId, initialLanguage, nav }: Props) {
   const [session, setSession] = useState<StartAttemptResponse | null>(null);
   const [answers, setAnswers] = useState<Record<string, AnswerState>>({});
   const [index, setIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [remainingSeconds, setRemainingSeconds] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
+  const [language, setLanguage] = useState<'Hindi' | 'English'>(initialLanguage ?? 'English');
   const [showPalette, setShowPalette] = useState(false);
+  const [paletteTab, setPaletteTab] = useState<'grid' | 'list'>('grid');
   const [showSubmitModal, setShowSubmitModal] = useState(false);
-  const [showSymbolsModal, setShowSymbolsModal] = useState(false);
-  const [showOverallSummaryModal, setShowOverallSummaryModal] = useState(false);
-  const [showInstructionsModal, setShowInstructionsModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [visited, setVisited] = useState<Record<string, boolean>>({});
   const submittedRef = useRef(false);
   const questionTimeRef = useRef<Record<string, number>>({});
   const questionEnteredAtRef = useRef<number>(Date.now());
   const pendingSavesRef = useRef<Promise<unknown>[]>([]);
+  const paletteTranslateX = useRef(new Animated.Value(PALETTE_WIDTH)).current;
+  const paletteBackdropOpacity = paletteTranslateX.interpolate({
+    inputRange: [0, PALETTE_WIDTH],
+    outputRange: [0.4, 0],
+    extrapolate: 'clamp',
+  });
+
+  const openPalette = () => {
+    setShowPalette(true);
+    paletteTranslateX.setValue(PALETTE_WIDTH);
+    Animated.timing(paletteTranslateX, {
+      toValue: 0,
+      duration: 260,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const closePalette = () => {
+    Animated.timing(paletteTranslateX, {
+      toValue: PALETTE_WIDTH,
+      duration: 220,
+      useNativeDriver: true,
+    }).start(() => {
+      setShowPalette(false);
+    });
+  };
 
   const trackSave = (promise: Promise<unknown>) => {
     pendingSavesRef.current.push(promise);
@@ -75,14 +122,18 @@ export default function TestTakingScreen({ token, testId, nav }: Props) {
         const result = await startAttempt(token, testId);
         setSession(result);
         const initialAnswers: Record<string, AnswerState> = {};
+        const initialVisited: Record<string, boolean> = {};
         result.questions.forEach((q) => {
           const existing = result.answers.find((a) => a.questionId === q.id);
           initialAnswers[q.id] = {
             selectedOption: existing?.selectedOption ?? null,
             markedForReview: existing?.markedForReview ?? false,
           };
+          if (existing) initialVisited[q.id] = true;
         });
+        if (result.questions[0]) initialVisited[result.questions[0].id] = true;
         setAnswers(initialAnswers);
+        setVisited(initialVisited);
         const elapsed = (Date.now() - new Date(result.startedAt).getTime()) / 1000;
         setRemainingSeconds(Math.max(0, result.test.durationMinutes * 60 - elapsed));
       } catch (err) {
@@ -126,7 +177,7 @@ export default function TestTakingScreen({ token, testId, nav }: Props) {
   }, [session, token, nav, index, answers]);
 
   useEffect(() => {
-    if (!session) return;
+    if (!session || isPaused) return;
     const timer = setInterval(() => {
       setRemainingSeconds((prev) => {
         if (prev <= 1) {
@@ -138,7 +189,7 @@ export default function TestTakingScreen({ token, testId, nav }: Props) {
       });
     }, 1000);
     return () => clearInterval(timer);
-  }, [session, handleSubmit]);
+  }, [session, handleSubmit, isPaused]);
 
   const currentQuestion: AttemptQuestion | undefined = session?.questions[index];
 
@@ -185,6 +236,10 @@ export default function TestTakingScreen({ token, testId, nav }: Props) {
   const goToIndex = (newIndex: number) => {
     commitCurrentQuestionTime();
     setIndex(newIndex);
+    const targetQuestion = session?.questions[newIndex];
+    if (targetQuestion) {
+      setVisited((prev) => (prev[targetQuestion.id] ? prev : { ...prev, [targetQuestion.id]: true }));
+    }
   };
 
   const answeredCount = useMemo(
@@ -197,30 +252,30 @@ export default function TestTakingScreen({ token, testId, nav }: Props) {
   );
   const totalQuestions = session?.questions.length ?? 0;
 
-  const currentSection = useMemo(() => {
-    if (!session?.test.subjectSections || session.test.subjectSections.length === 0) return null;
-    return session.test.subjectSections.find((s) => index + 1 >= s.startNo && index + 1 <= s.endNo);
-  }, [session, index]);
+  const getStatus = (q: AttemptQuestion): QStatus => {
+    const a = answers[q.id];
+    const isAnswered = a?.selectedOption !== null && a?.selectedOption !== undefined;
+    if (a?.markedForReview) return 'marked';
+    if (isAnswered) return 'attempted';
+    if (visited[q.id]) return 'notAnswered';
+    return 'notVisited';
+  };
 
-  const currentSectionName = currentSection
-    ? currentSection.name
-    : currentQuestion?.subject
-    ? currentQuestion.subject.toUpperCase()
-    : 'SECTION';
+  const countStatuses = (questions: AttemptQuestion[]) => {
+    const counts = { attempted: 0, notVisited: 0, notAnswered: 0, marked: 0 };
+    questions.forEach((q) => {
+      counts[getStatus(q)]++;
+    });
+    return counts;
+  };
 
-  const sectionQuestions = useMemo(() => {
-    if (!session) return [];
-    if (!currentSection) return session.questions;
-    return session.questions.slice(currentSection.startNo - 1, currentSection.endNo);
-  }, [session, currentSection]);
+  const overallCounts = session ? countStatuses(session.questions) : { attempted: 0, notVisited: 0, notAnswered: 0, marked: 0 };
 
-  const sectionAnsweredCount = useMemo(() => {
-    return sectionQuestions.filter(
-      (q) => answers[q.id]?.selectedOption !== null && answers[q.id]?.selectedOption !== undefined
-    ).length;
-  }, [sectionQuestions, answers]);
-
-  const sectionUnansweredCount = sectionQuestions.length - sectionAnsweredCount;
+  const sectionsToRender = session
+    ? session.test.subjectSections.length > 0
+      ? session.test.subjectSections
+      : [{ name: '', startNo: 1, endNo: totalQuestions }]
+    : [];
 
   if (loading) {
     return (
@@ -244,6 +299,11 @@ export default function TestTakingScreen({ token, testId, nav }: Props) {
 
   const currentAnswer = answers[currentQuestion.id] ?? { selectedOption: null, markedForReview: false };
   const isLast = index === totalQuestions - 1;
+  const hasHindi = !!(currentQuestion.textHindi && currentQuestion.optionsHindi);
+  const displayedText =
+    language === 'Hindi' && currentQuestion.textHindi ? currentQuestion.textHindi : currentQuestion.text;
+  const displayedOptions =
+    language === 'Hindi' && currentQuestion.optionsHindi ? currentQuestion.optionsHindi : currentQuestion.options;
 
   return (
     <SafeAreaView style={styles.root} edges={['top', 'bottom']}>
@@ -255,9 +315,14 @@ export default function TestTakingScreen({ token, testId, nav }: Props) {
         <Text style={styles.testTitle} numberOfLines={1}>
           {session.test.title}
         </Text>
-        <Pressable style={styles.paletteBtn} onPress={() => setShowPalette(true)} hitSlop={8}>
-          <Ionicons name="grid-outline" size={20} color={NAVY} />
-        </Pressable>
+        <View style={styles.topBarRightGroup}>
+          <Pressable style={styles.pauseBtn} onPress={() => setIsPaused(true)} hitSlop={8}>
+            <Ionicons name="pause" size={18} color={NAVY} />
+          </Pressable>
+          <Pressable style={styles.paletteBtn} onPress={openPalette} hitSlop={8}>
+            <Ionicons name="grid-outline" size={20} color={NAVY} />
+          </Pressable>
+        </View>
       </View>
 
       <View style={styles.progressTrack}>
@@ -293,15 +358,41 @@ export default function TestTakingScreen({ token, testId, nav }: Props) {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.subjectRow}>
           <Text style={styles.subjectLabel}>{currentQuestion.subject.toUpperCase()}</Text>
-          <Text style={styles.questionCounter}>
-            Q. {index + 1} of {totalQuestions}
-          </Text>
+          <View style={styles.subjectRowRight}>
+            {hasHindi && (
+              <View style={styles.langToggle}>
+                <Pressable
+                  style={[styles.langToggleBtn, language === 'English' && styles.langToggleBtnActive]}
+                  onPress={() => setLanguage('English')}
+                >
+                  <Text
+                    style={[styles.langToggleText, language === 'English' && styles.langToggleTextActive]}
+                  >
+                    EN
+                  </Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.langToggleBtn, language === 'Hindi' && styles.langToggleBtnActive]}
+                  onPress={() => setLanguage('Hindi')}
+                >
+                  <Text
+                    style={[styles.langToggleText, language === 'Hindi' && styles.langToggleTextActive]}
+                  >
+                    हिं
+                  </Text>
+                </Pressable>
+              </View>
+            )}
+            <Text style={styles.questionCounter}>
+              Q. {index + 1} of {totalQuestions}
+            </Text>
+          </View>
         </View>
 
-        <Text style={styles.questionText}>{currentQuestion.text}</Text>
+        <Text style={styles.questionText}>{displayedText}</Text>
 
         <View style={styles.optionsList}>
-          {currentQuestion.options.map((option, optIdx) => {
+          {displayedOptions.map((option, optIdx) => {
             const selected = currentAnswer.selectedOption === optIdx;
             return (
               <Pressable
@@ -379,273 +470,197 @@ export default function TestTakingScreen({ token, testId, nav }: Props) {
         </Pressable>
       </View>
 
-      <Modal visible={showPalette} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <View style={styles.paletteSheet}>
+      <Modal visible={showPalette} transparent animationType="none" onRequestClose={closePalette}>
+        <View style={styles.paletteModalRoot}>
+          <Pressable style={styles.paletteBackdropTouchable} onPress={closePalette}>
+            <Animated.View style={[styles.paletteBackdropFill, { opacity: paletteBackdropOpacity }]} />
+          </Pressable>
+          <Animated.View
+            style={[
+              styles.paletteAnimWrap,
+              { width: PALETTE_WIDTH, transform: [{ translateX: paletteTranslateX }] },
+            ]}
+          >
+            <SafeAreaView style={styles.paletteSheet} edges={['top', 'bottom']}>
             <View style={styles.paletteHeaderRow}>
+              <Pressable onPress={closePalette} hitSlop={8}>
+                <Ionicons name="arrow-back" size={22} color="#1E293B" />
+              </Pressable>
               <Text style={styles.paletteTitle} numberOfLines={1}>
                 {session.test.title}
               </Text>
-              <Pressable onPress={() => setShowPalette(false)} hitSlop={8}>
-                <Ionicons name="close" size={24} color="#1E293B" />
-              </Pressable>
             </View>
 
-            <Text style={styles.paletteSectionTitle}>{currentSectionName}</Text>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <View style={styles.legendGrid}>
+                <View style={styles.legendGridRow}>
+                  <View style={styles.legendGridItem}>
+                    <View style={[styles.legendDot, { backgroundColor: STATUS_COLORS.attempted }]} />
+                    <Text style={styles.legendGridText}>Attempted</Text>
+                  </View>
+                  <View style={styles.legendGridItem}>
+                    <View style={[styles.legendDot, styles.legendDotOutline]} />
+                    <Text style={styles.legendGridText}>Not Visited</Text>
+                  </View>
+                </View>
+                <View style={styles.legendGridRow}>
+                  <View style={styles.legendGridItem}>
+                    <View style={[styles.legendDot, { backgroundColor: STATUS_COLORS.notAnswered }]} />
+                    <Text style={styles.legendGridText}>Not Attempted</Text>
+                  </View>
+                  <View style={styles.legendGridItem}>
+                    <View style={[styles.legendDot, { backgroundColor: STATUS_COLORS.marked }]} />
+                    <Text style={styles.legendGridText}>Marked for Review</Text>
+                  </View>
+                </View>
+              </View>
 
-            <ScrollView
-              style={styles.paletteGridScroll}
-              contentContainerStyle={styles.paletteGrid}
-              showsVerticalScrollIndicator={false}
-            >
-              {session.questions.map((q, i) => {
-                const a = answers[q.id];
-                const isCurrent = i === index;
-                const isAnswered = a?.selectedOption !== null && a?.selectedOption !== undefined;
-                const isMarked = a?.markedForReview;
+              <Text style={styles.summaryHeading}>Test Summary</Text>
+              <View style={styles.statCircleRow}>
+                <View style={styles.statCircleItem}>
+                  <View style={styles.statCircle}>
+                    <Text style={styles.statCircleText}>{overallCounts.attempted}</Text>
+                  </View>
+                  <Text style={styles.statCircleLabel}>Attempted</Text>
+                </View>
+                <View style={styles.statCircleItem}>
+                  <View style={styles.statCircle}>
+                    <Text style={styles.statCircleText}>{overallCounts.notVisited}</Text>
+                  </View>
+                  <Text style={styles.statCircleLabel}>Not Visited</Text>
+                </View>
+                <View style={styles.statCircleItem}>
+                  <View style={styles.statCircle}>
+                    <Text style={styles.statCircleText}>{overallCounts.notAnswered}</Text>
+                  </View>
+                  <Text style={styles.statCircleLabel}>Not Answered</Text>
+                </View>
+                <View style={styles.statCircleItem}>
+                  <View style={styles.statCircle}>
+                    <Text style={styles.statCircleText}>{overallCounts.marked}</Text>
+                  </View>
+                  <Text style={styles.statCircleLabel}>Review</Text>
+                </View>
+              </View>
 
-                let cellBg = '#3B82F6'; // Default Blue (Not attempted)
-                if (isMarked) {
-                  cellBg = '#EF4444'; // Red (Marked for review)
-                } else if (isAnswered) {
-                  cellBg = '#22C55E'; // Green (Answered)
-                }
+              <View style={styles.paletteTabRow}>
+                <Pressable style={styles.paletteTabBtn} onPress={() => setPaletteTab('grid')}>
+                  <Text style={[styles.paletteTabText, paletteTab === 'grid' && styles.paletteTabTextActive]}>
+                    Grid
+                  </Text>
+                  {paletteTab === 'grid' && <View style={styles.paletteTabUnderline} />}
+                </Pressable>
+                <Pressable style={styles.paletteTabBtn} onPress={() => setPaletteTab('list')}>
+                  <Text style={[styles.paletteTabText, paletteTab === 'list' && styles.paletteTabTextActive]}>
+                    List
+                  </Text>
+                  {paletteTab === 'list' && <View style={styles.paletteTabUnderline} />}
+                </Pressable>
+              </View>
 
+              {sectionsToRender.map((section, sIdx) => {
+                const sectionQs = session.questions.slice(section.startNo - 1, section.endNo);
+                const counts = countStatuses(sectionQs);
                 return (
-                  <Pressable
-                    key={q.id}
-                    style={[
-                      styles.paletteCell,
-                      { backgroundColor: cellBg, borderColor: cellBg },
-                      isCurrent && styles.paletteCellCurrent,
-                    ]}
-                    onPress={() => {
-                      goToIndex(i);
-                      setShowPalette(false);
-                    }}
-                  >
-                    <Text style={styles.paletteCellText}>{i + 1}</Text>
-                  </Pressable>
+                  <View key={`${section.name}-${sIdx}`} style={styles.sectionBlock}>
+                    {!!section.name && <Text style={styles.sectionBlockTitle}>{section.name}</Text>}
+                    <View style={styles.sectionCountsRow}>
+                      <View style={styles.sectionCountItem}>
+                        <View style={[styles.sectionCountDot, { backgroundColor: STATUS_COLORS.attempted }]} />
+                        <Text style={styles.sectionCountText}>{counts.attempted}</Text>
+                      </View>
+                      <View style={styles.sectionCountItem}>
+                        <View style={[styles.sectionCountDot, styles.legendDotOutline]} />
+                        <Text style={styles.sectionCountText}>{counts.notVisited}</Text>
+                      </View>
+                      <View style={styles.sectionCountItem}>
+                        <View style={[styles.sectionCountDot, { backgroundColor: STATUS_COLORS.notAnswered }]} />
+                        <Text style={styles.sectionCountText}>{counts.notAnswered}</Text>
+                      </View>
+                      <View style={styles.sectionCountItem}>
+                        <View style={[styles.sectionCountDot, { backgroundColor: STATUS_COLORS.marked }]} />
+                        <Text style={styles.sectionCountText}>{counts.marked}</Text>
+                      </View>
+                    </View>
+
+                    {paletteTab === 'grid' ? (
+                      <View style={styles.paletteGrid}>
+                        {sectionQs.map((q, localIdx) => {
+                          const globalIdx = section.startNo - 1 + localIdx;
+                          const status = getStatus(q);
+                          const isCurrent = globalIdx === index;
+                          const bg = STATUS_COLORS[status];
+                          return (
+                            <Pressable
+                              key={q.id}
+                              style={[
+                                styles.paletteCell,
+                                { backgroundColor: bg, borderColor: status === 'notVisited' ? '#CBD5E1' : bg },
+                                isCurrent && styles.paletteCellCurrent,
+                              ]}
+                              onPress={() => {
+                                goToIndex(globalIdx);
+                                closePalette();
+                              }}
+                            >
+                              <Text style={[styles.paletteCellText, status === 'notVisited' && styles.paletteCellTextDark]}>
+                                {globalIdx + 1}
+                              </Text>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+                    ) : (
+                      <View style={styles.paletteList}>
+                        {sectionQs.map((q, localIdx) => {
+                          const globalIdx = section.startNo - 1 + localIdx;
+                          const status = getStatus(q);
+                          const isCurrent = globalIdx === index;
+                          const bg = STATUS_COLORS[status];
+                          return (
+                            <Pressable
+                              key={q.id}
+                              style={[styles.paletteListRow, isCurrent && styles.paletteListRowCurrent]}
+                              onPress={() => {
+                                goToIndex(globalIdx);
+                                closePalette();
+                              }}
+                            >
+                              <View
+                                style={[
+                                  styles.paletteListDot,
+                                  { backgroundColor: bg, borderColor: status === 'notVisited' ? '#CBD5E1' : bg },
+                                ]}
+                              >
+                                <Text style={[styles.paletteListDotText, status === 'notVisited' && styles.paletteCellTextDark]}>
+                                  {globalIdx + 1}
+                                </Text>
+                              </View>
+                              <Text style={styles.paletteListLabel} numberOfLines={1}>
+                                {q.subject}
+                              </Text>
+                              <Text style={styles.paletteListStatus}>{STATUS_LABELS[status]}</Text>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+                    )}
+                  </View>
                 );
               })}
             </ScrollView>
 
-            <View style={styles.sectionAnalysisBar}>
-              <Text style={styles.sectionAnalysisText}>{currentSectionName} Analysis</Text>
-            </View>
-
-            <View style={styles.sectionAnalysisBody}>
-              <View style={styles.analysisRow}>
-                <Text style={styles.analysisLabel}>Answered</Text>
-                <View style={styles.analysisBadge}>
-                  <Text style={styles.analysisBadgeText}>{sectionAnsweredCount}</Text>
-                </View>
-              </View>
-              <View style={styles.analysisRow}>
-                <Text style={styles.analysisLabel}>Not-Answered</Text>
-                <View style={styles.analysisBadge}>
-                  <Text style={styles.analysisBadgeText}>{sectionUnansweredCount}</Text>
-                </View>
-              </View>
-            </View>
-
             <Pressable
-              style={styles.greyActionBtn}
-              onPress={() => setShowOverallSummaryModal(true)}
-            >
-              <Text style={styles.greyActionBtnText}>Overall Test Summary</Text>
-            </Pressable>
-
-            <View style={styles.actionBtnRow}>
-              <Pressable
-                style={[styles.greyActionBtn, { flex: 1 }]}
-                onPress={() => setShowSymbolsModal(true)}
-              >
-                <Text style={styles.greyActionBtnText}>Symbols</Text>
-              </Pressable>
-              <Pressable
-                style={[styles.greyActionBtn, { flex: 1 }]}
-                onPress={() => setShowInstructionsModal(true)}
-              >
-                <Text style={styles.greyActionBtnText}>Instructions</Text>
-              </Pressable>
-            </View>
-
-            <Pressable
-              style={styles.submitSectionBtn}
+              style={styles.submitTestBtnSheet}
               onPress={() => {
-                setShowPalette(false);
+                closePalette();
                 setShowSubmitModal(true);
               }}
             >
-              <Text style={styles.submitSectionBtnText}>Submit Section</Text>
+              <Text style={styles.submitTestBtnSheetText}>Submit Test</Text>
             </Pressable>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Overall Test Summary Modal */}
-      <Modal visible={showOverallSummaryModal} transparent animationType="fade">
-        <View style={[styles.modalOverlay, styles.confirmOverlay]}>
-          <View style={styles.confirmCard}>
-            <View style={styles.modalHeaderRow}>
-              <Text style={styles.modalHeaderTitle}>Overall Test Summary</Text>
-              <Pressable onPress={() => setShowOverallSummaryModal(false)} hitSlop={8}>
-                <Ionicons name="close" size={22} color={NAVY} />
-              </Pressable>
-            </View>
-            <ScrollView contentContainerStyle={{ paddingVertical: 12, gap: 10 }}>
-              <View style={styles.summaryItemRow}>
-                <Text style={styles.summaryItemLabel}>Total Questions:</Text>
-                <Text style={styles.summaryItemVal}>{totalQuestions}</Text>
-              </View>
-              <View style={styles.summaryItemRow}>
-                <Text style={styles.summaryItemLabel}>Total Marks:</Text>
-                <Text style={styles.summaryItemVal}>{session.test.totalMarks} Marks</Text>
-              </View>
-              <View style={styles.summaryItemRow}>
-                <Text style={styles.summaryItemLabel}>Answered:</Text>
-                <Text style={[styles.summaryItemVal, { color: '#22C55E' }]}>{answeredCount}</Text>
-              </View>
-              <View style={styles.summaryItemRow}>
-                <Text style={styles.summaryItemLabel}>Not Answered:</Text>
-                <Text style={[styles.summaryItemVal, { color: '#3B82F6' }]}>{totalQuestions - answeredCount}</Text>
-              </View>
-              <View style={styles.summaryItemRow}>
-                <Text style={styles.summaryItemLabel}>Marked for Review:</Text>
-                <Text style={[styles.summaryItemVal, { color: '#EF4444' }]}>{markedCount}</Text>
-              </View>
-              <View style={styles.summaryItemRow}>
-                <Text style={styles.summaryItemLabel}>Marks / Question:</Text>
-                <Text style={styles.summaryItemVal}>+{(session.test.totalMarks / (totalQuestions || 1)).toFixed(2)}</Text>
-              </View>
-              <View style={styles.summaryItemRow}>
-                <Text style={styles.summaryItemLabel}>Negative Marks:</Text>
-                <Text style={[styles.summaryItemVal, { color: session.test.negativeMarks > 0 ? ERROR : MUTED }]}>
-                  {session.test.negativeMarks > 0 ? `-${session.test.negativeMarks}` : '0 (No Negative)'}
-                </Text>
-              </View>
-              <View style={styles.summaryItemRow}>
-                <Text style={styles.summaryItemLabel}>Time Remaining:</Text>
-                <Text style={[styles.summaryItemVal, { color: ERROR }]}>{formatTime(remainingSeconds)}</Text>
-              </View>
-            </ScrollView>
-            <Pressable style={styles.submitBtn} onPress={() => setShowOverallSummaryModal(false)}>
-              <Text style={styles.submitBtnText}>Close Summary</Text>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Symbols Modal */}
-      <Modal visible={showSymbolsModal} transparent animationType="fade">
-        <View style={[styles.modalOverlay, styles.confirmOverlay]}>
-          <View style={styles.confirmCard}>
-            <View style={styles.modalHeaderRow}>
-              <Text style={styles.modalHeaderTitle}>Symbols & Color Legend</Text>
-              <Pressable onPress={() => setShowSymbolsModal(false)} hitSlop={8}>
-                <Ionicons name="close" size={22} color={NAVY} />
-              </Pressable>
-            </View>
-            <ScrollView contentContainerStyle={{ paddingVertical: 12, gap: 14 }}>
-              <View style={styles.symbolLegendRow}>
-                <View style={[styles.legendBox, { backgroundColor: '#22C55E' }]}>
-                  <Text style={styles.legendBoxText}>1</Text>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.legendTitle}>Answered (उत्तर दिया गया)</Text>
-                  <Text style={styles.legendSub}>Option selected and response saved</Text>
-                </View>
-              </View>
-
-              <View style={styles.symbolLegendRow}>
-                <View style={[styles.legendBox, { backgroundColor: '#EF4444' }]}>
-                  <Text style={styles.legendBoxText}>2</Text>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.legendTitle}>Marked for Review (समीक्षा हेतु)</Text>
-                  <Text style={styles.legendSub}>Marked to re-check before submitting</Text>
-                </View>
-              </View>
-
-              <View style={styles.symbolLegendRow}>
-                <View style={[styles.legendBox, { backgroundColor: '#3B82F6' }]}>
-                  <Text style={styles.legendBoxText}>3</Text>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.legendTitle}>Not Answered (उत्तर नहीं दिया)</Text>
-                  <Text style={styles.legendSub}>Question visited or unattempted</Text>
-                </View>
-              </View>
-
-              <View style={styles.symbolLegendRow}>
-                <View style={[styles.legendBox, { backgroundColor: '#3B82F6', borderWidth: 2.5, borderColor: '#0F172A' }]}>
-                  <Text style={styles.legendBoxText}>4</Text>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.legendTitle}>Current Question (वर्तमान प्रश्न)</Text>
-                  <Text style={styles.legendSub}>Thick border highlights your current question</Text>
-                </View>
-              </View>
-            </ScrollView>
-            <Pressable style={styles.submitBtn} onPress={() => setShowSymbolsModal(false)}>
-              <Text style={styles.submitBtnText}>Close</Text>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Instructions Modal */}
-      <Modal visible={showInstructionsModal} transparent animationType="fade">
-        <View style={[styles.modalOverlay, styles.confirmOverlay]}>
-          <View style={[styles.confirmCard, { maxHeight: '80%' }]}>
-            <View style={styles.modalHeaderRow}>
-              <Text style={styles.modalHeaderTitle}>Test Instructions</Text>
-              <Pressable onPress={() => setShowInstructionsModal(false)} hitSlop={8}>
-                <Ionicons name="close" size={22} color={NAVY} />
-              </Pressable>
-            </View>
-            <ScrollView contentContainerStyle={{ paddingVertical: 12, gap: 14 }}>
-              <View style={styles.instSection}>
-                <Text style={styles.instHeading}>⏱️ Duration & Timer</Text>
-                <Text style={styles.instBody}>
-                  • Total Time: {session.test.durationMinutes} minutes.{'\n'}
-                  • Server-controlled timer is displayed on the top left.{'\n'}
-                  • Responses are automatically saved continuously.
-                </Text>
-              </View>
-
-              <View style={styles.instSection}>
-                <Text style={styles.instHeading}>📊 Marking Scheme</Text>
-                <Text style={styles.instBody}>
-                  • Correct Answer: +{(session.test.totalMarks / (totalQuestions || 1)).toFixed(2)} marks.{'\n'}
-                  • Wrong Answer: {session.test.negativeMarks > 0 ? `-${session.test.negativeMarks} negative marks` : 'No negative marks'}.{'\n'}
-                  • Skipped/Unanswered: 0 marks.
-                </Text>
-              </View>
-
-              <View style={styles.instSection}>
-                <Text style={styles.instHeading}>🎨 Color Codes</Text>
-                <Text style={styles.instBody}>
-                  • Green: Answered{'\n'}
-                  • Red: Marked for Review{'\n'}
-                  • Blue: Unattempted{'\n'}
-                  • Bordered Box: Active Question
-                </Text>
-              </View>
-
-              <View style={styles.instSection}>
-                <Text style={styles.instHeading}>⚠️ Important Rules</Text>
-                <Text style={styles.instBody}>
-                  • Do not minimize or leave the app during exam.{'\n'}
-                  • Click "Submit Section" or "Submit Test" to submit your attempt.
-                </Text>
-              </View>
-            </ScrollView>
-            <Pressable style={styles.submitBtn} onPress={() => setShowInstructionsModal(false)}>
-              <Text style={styles.submitBtnText}>Close Instructions</Text>
-            </Pressable>
-          </View>
+            </SafeAreaView>
+          </Animated.View>
         </View>
       </Modal>
 
@@ -711,6 +726,21 @@ export default function TestTakingScreen({ token, testId, nav }: Props) {
           </View>
         </View>
       </Modal>
+
+      {isPaused && (
+        <View style={styles.pauseOverlay}>
+          <View style={styles.pauseCard}>
+            <View style={styles.pauseIconWrap}>
+              <Ionicons name="pause" size={26} color="#FFFFFF" />
+            </View>
+            <Text style={styles.pauseTitle}>Test Paused</Text>
+            <Text style={styles.pauseSubtitle}>Time Remaining: {formatTime(remainingSeconds)}</Text>
+            <Pressable style={styles.submitBtn} onPress={() => setIsPaused(false)}>
+              <Text style={styles.submitBtnText}>Resume Test</Text>
+            </Pressable>
+          </View>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -769,6 +799,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: NAVY,
   },
+  topBarRightGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   paletteBtn: {
     width: 34,
     height: 34,
@@ -777,6 +812,52 @@ const styles = StyleSheet.create({
     borderColor: '#EDEBE4',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  pauseBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#EDEBE4',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pauseOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(15,23,42,0.85)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 50,
+  },
+  pauseCard: {
+    width: '80%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 24,
+    alignItems: 'center',
+  },
+  pauseIconWrap: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: NAVY,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  pauseTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: NAVY,
+  },
+  pauseSubtitle: {
+    fontSize: 13,
+    color: MUTED,
+    marginTop: 6,
   },
   progressTrack: {
     height: 3,
@@ -833,6 +914,33 @@ const styles = StyleSheet.create({
   questionCounter: {
     fontSize: 12,
     color: MUTED,
+  },
+  subjectRowRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  langToggle: {
+    flexDirection: 'row',
+    backgroundColor: '#EEEDE6',
+    borderRadius: 14,
+    padding: 2,
+  },
+  langToggleBtn: {
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+    borderRadius: 12,
+  },
+  langToggleBtnActive: {
+    backgroundColor: NAVY,
+  },
+  langToggleText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: MUTED,
+  },
+  langToggleTextActive: {
+    color: '#FFFFFF',
   },
   questionText: {
     fontSize: 17,
@@ -953,38 +1061,168 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(15,23,42,0.38)',
     justifyContent: 'flex-end',
   },
+  paletteModalRoot: {
+    flex: 1,
+  },
+  paletteBackdropTouchable: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  paletteBackdropFill: {
+    flex: 1,
+    backgroundColor: '#0F172A',
+  },
+  paletteAnimWrap: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    shadowColor: '#000',
+    shadowOffset: { width: -2, height: 0 },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    elevation: 8,
+  },
   paletteSheet: {
+    flex: 1,
     backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
     padding: 18,
-    maxHeight: '85%',
+    paddingBottom: 0,
   },
   paletteHeaderRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingBottom: 8,
+    gap: 12,
+    paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#F1F5F9',
   },
   paletteTitle: {
     flex: 1,
+    fontSize: 16,
+    fontWeight: '800',
+    color: NAVY,
+  },
+  legendGrid: {
+    marginTop: 16,
+    gap: 10,
+  },
+  legendGridRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  legendGridItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    width: '48%',
+  },
+  legendDot: {
+    width: 14,
+    height: 14,
+    borderRadius: 3,
+  },
+  legendDotOutline: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
+  },
+  legendGridText: {
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: '#334155',
+  },
+  summaryHeading: {
     fontSize: 15,
     fontWeight: '800',
     color: NAVY,
-    marginRight: 10,
+    marginTop: 20,
+    marginBottom: 4,
   },
-  paletteSectionTitle: {
-    fontSize: 16,
+  statCircleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 12,
+  },
+  statCircleItem: {
+    alignItems: 'center',
+    gap: 6,
+  },
+  statCircle: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statCircleText: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  statCircleLabel: {
+    fontSize: 10.5,
+    fontWeight: '600',
+    color: '#64748B',
+    textAlign: 'center',
+  },
+  paletteTabRow: {
+    flexDirection: 'row',
+    gap: 24,
+    marginTop: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  paletteTabBtn: {
+    paddingBottom: 10,
+  },
+  paletteTabText: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: '#94A3B8',
+  },
+  paletteTabTextActive: {
+    color: NAVY,
+  },
+  paletteTabUnderline: {
+    marginTop: 8,
+    height: 2.5,
+    backgroundColor: NAVY,
+    borderRadius: 2,
+  },
+  sectionBlock: {
+    marginTop: 18,
+  },
+  sectionBlockTitle: {
+    fontSize: 14,
     fontWeight: '800',
     color: '#1D4ED8',
-    marginTop: 12,
+    marginBottom: 8,
+  },
+  sectionCountsRow: {
+    flexDirection: 'row',
+    gap: 16,
     marginBottom: 12,
   },
-  paletteGridScroll: {
-    maxHeight: 180,
-    marginBottom: 12,
+  sectionCountItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  sectionCountDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 2,
+  },
+  sectionCountText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#334155',
   },
   paletteGrid: {
     flexDirection: 'row',
@@ -995,6 +1233,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 40,
     borderRadius: 8,
+    borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1007,72 +1246,59 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#FFFFFF',
   },
-  sectionAnalysisBar: {
-    backgroundColor: '#D1D5DB',
-    paddingVertical: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 4,
-    marginBottom: 10,
-  },
-  sectionAnalysisText: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#0F172A',
-    textTransform: 'uppercase',
-  },
-  sectionAnalysisBody: {
-    gap: 8,
-    marginBottom: 14,
-  },
-  analysisRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  analysisLabel: {
-    fontSize: 13,
-    fontWeight: '700',
+  paletteCellTextDark: {
     color: '#334155',
   },
-  analysisBadge: {
-    backgroundColor: '#FEF9C3',
-    borderWidth: 1,
-    borderColor: '#FEF08A',
-    paddingHorizontal: 16,
-    paddingVertical: 3,
-    borderRadius: 4,
-  },
-  analysisBadgeText: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#DC2626',
-  },
-  greyActionBtn: {
-    backgroundColor: '#E2E8F0',
-    borderRadius: 8,
-    paddingVertical: 10,
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  greyActionBtnText: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#1E293B',
-  },
-  actionBtnRow: {
-    flexDirection: 'row',
+  paletteList: {
     gap: 8,
-    marginBottom: 10,
   },
-  submitSectionBtn: {
-    backgroundColor: '#0E4B94',
-    borderRadius: 8,
-    paddingVertical: 12,
+  paletteListRow: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 12,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    borderRadius: 10,
+    padding: 8,
   },
-  submitSectionBtnText: {
-    fontSize: 14,
+  paletteListRowCurrent: {
+    borderColor: '#0F172A',
+    borderWidth: 1.5,
+  },
+  paletteListDot: {
+    width: 34,
+    height: 34,
+    borderRadius: 8,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  paletteListDotText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  paletteListLabel: {
+    flex: 1,
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: '#334155',
+  },
+  paletteListStatus: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  submitTestBtnSheet: {
+    backgroundColor: '#22A559',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginTop: 18,
+    marginBottom: 18,
+  },
+  submitTestBtnSheetText: {
+    fontSize: 14.5,
     fontWeight: '800',
     color: '#FFFFFF',
   },
@@ -1085,79 +1311,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
     padding: 20,
-  },
-  modalHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
-    paddingBottom: 10,
-  },
-  modalHeaderTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: NAVY,
-  },
-  summaryItemRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 6,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F8FAFC',
-  },
-  summaryItemLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#475569',
-  },
-  summaryItemVal: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#0F172A',
-  },
-  symbolLegendRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  legendBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  legendBoxText: {
-    color: '#FFFFFF',
-    fontWeight: '800',
-    fontSize: 13,
-  },
-  legendTitle: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#0F172A',
-  },
-  legendSub: {
-    fontSize: 11.5,
-    color: '#64748B',
-    marginTop: 1,
-  },
-  instSection: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 10,
-    padding: 12,
-  },
-  instHeading: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: NAVY,
-    marginBottom: 6,
-  },
-  instBody: {
-    fontSize: 12,
-    color: '#334155',
-    lineHeight: 18,
   },
   confirmScrollContent: {
     alignItems: 'center',

@@ -1,8 +1,7 @@
 import axios from "axios";
 
 export const API_BASE_URL = "https://api.thespeedtest.in/api";
-
-export const SERVER_ORIGIN = "https://api.thespeedtest.in";
+ export const SERVER_ORIGIN = "https://api.thespeedtest.in";
 
 export const resolveAssetUrl = (
   path: string | null | undefined

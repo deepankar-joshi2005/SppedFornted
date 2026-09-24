@@ -48,11 +48,14 @@ export default function AdminAddQuestionScreen({
   const [subject, setSubject] = useState(initialSubject ?? '');
   const [topic, setTopic] = useState('');
   const [text, setText] = useState('');
+  const [textHindi, setTextHindi] = useState('');
   const [image, setImage] = useState<string | null>(null);
   const [showImagePicker, setShowImagePicker] = useState(false);
   const [options, setOptions] = useState(['', '', '', '']);
+  const [optionsHindi, setOptionsHindi] = useState(['', '', '', '']);
   const [correctOptionIndex, setCorrectOptionIndex] = useState<number | null>(null);
   const [explanation, setExplanation] = useState('');
+  const [explanationHindi, setExplanationHindi] = useState('');
   const [difficulty, setDifficulty] = useState<QuestionDifficulty>('Moderate');
   const [marks, setMarks] = useState('2');
   const [negativeMarks, setNegativeMarks] = useState('0.25');
@@ -67,10 +70,13 @@ export default function AdminAddQuestionScreen({
         setSubject(q.subject);
         setTopic(q.topic);
         setText(q.text);
+        setTextHindi(q.textHindi ?? '');
         setImage(q.image);
         setOptions(q.options);
+        setOptionsHindi(q.optionsHindi?.length === 4 ? q.optionsHindi : ['', '', '', '']);
         setCorrectOptionIndex(q.correctOptionIndex);
         setExplanation(q.explanation);
+        setExplanationHindi(q.explanationHindi ?? '');
         setDifficulty(q.difficulty);
         setMarks(String(q.marks));
         setNegativeMarks(String(q.negativeMarks));
@@ -84,11 +90,14 @@ export default function AdminAddQuestionScreen({
 
   const resetForm = () => {
     setText('');
+    setTextHindi('');
     setImage(null);
     setShowImagePicker(false);
     setOptions(['', '', '', '']);
+    setOptionsHindi(['', '', '', '']);
     setCorrectOptionIndex(null);
     setExplanation('');
+    setExplanationHindi('');
   };
 
   const validate = (): boolean => {
@@ -108,6 +117,11 @@ export default function AdminAddQuestionScreen({
       Alert.alert('Please mark the correct option');
       return false;
     }
+    const hindiOptionsFilled = optionsHindi.filter((o) => o.trim()).length;
+    if (hindiOptionsFilled > 0 && hindiOptionsFilled < 4) {
+      Alert.alert('If you fill any Hindi option, all four Hindi options are required');
+      return false;
+    }
     return true;
   };
 
@@ -116,10 +130,13 @@ export default function AdminAddQuestionScreen({
     subject: subject.trim(),
     topic: topic.trim(),
     text: text.trim(),
+    textHindi: textHindi.trim(),
     image,
     options,
+    optionsHindi: optionsHindi.every((o) => o.trim()) ? optionsHindi : [],
     correctOptionIndex: correctOptionIndex as number,
     explanation,
+    explanationHindi,
     difficulty,
     marks: Number(marks) || 2,
     negativeMarks: Number(negativeMarks) || 0.25,
@@ -220,6 +237,18 @@ export default function AdminAddQuestionScreen({
             )}
           </View>
 
+          <Text style={styles.label}>Question Text (Hindi) — optional</Text>
+          <View style={styles.questionCard}>
+            <TextInput
+              style={styles.questionInput}
+              placeholder="प्रश्न हिंदी में लिखें..."
+              placeholderTextColor="#9AA3B2"
+              value={textHindi}
+              onChangeText={setTextHindi}
+              multiline
+            />
+          </View>
+
           <Text style={styles.label}>Options (Mark Correct Option)</Text>
           {options.map((opt, idx) => (
             <Pressable
@@ -246,6 +275,22 @@ export default function AdminAddQuestionScreen({
             </Pressable>
           ))}
 
+          <Text style={styles.label}>Options (Hindi) — optional, fill all four or leave blank</Text>
+          {optionsHindi.map((opt, idx) => (
+            <View key={idx} style={styles.optionRow}>
+              <Text style={styles.optionLetter}>{OPTION_LABELS[idx]}</Text>
+              <TextInput
+                style={styles.optionInput}
+                placeholder={`विकल्प ${OPTION_LABELS[idx]}`}
+                placeholderTextColor="#9AA3B2"
+                value={opt}
+                onChangeText={(v) =>
+                  setOptionsHindi((prev) => prev.map((o, i) => (i === idx ? v : o)))
+                }
+              />
+            </View>
+          ))}
+
           <Text style={styles.label}>Explanation / Solution</Text>
           <View style={styles.explanationBox}>
             <TextInput
@@ -254,6 +299,18 @@ export default function AdminAddQuestionScreen({
               placeholderTextColor="#9AA3B2"
               value={explanation}
               onChangeText={setExplanation}
+              multiline
+            />
+          </View>
+
+          <Text style={styles.label}>Explanation / Solution (Hindi) — optional</Text>
+          <View style={styles.explanationBox}>
+            <TextInput
+              style={styles.explanationInput}
+              placeholder="सही उत्तर की व्याख्या हिंदी में..."
+              placeholderTextColor="#9AA3B2"
+              value={explanationHindi}
+              onChangeText={setExplanationHindi}
               multiline
             />
           </View>

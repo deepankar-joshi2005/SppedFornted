@@ -4,14 +4,20 @@ import { Alert, BackHandler, Platform, ToastAndroid, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import BottomTabBar from './src/components/BottomTabBar';
 import { Nav, Route, routeTab } from './src/navigation/types';
+import EbooksScreen from './src/screens/EbooksScreen';
 import EditProfileScreen from './src/screens/EditProfileScreen';
+import FreeTestsScreen from './src/screens/FreeTestsScreen';
 import HelpSupportScreen from './src/screens/HelpSupportScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import LandingScreen from './src/screens/LandingScreen';
 import LanguagePreferenceScreen from './src/screens/LanguagePreferenceScreen';
 import LeaderboardScreen from './src/screens/LeaderboardScreen';
 import NotificationsScreen from './src/screens/NotificationsScreen';
+import PdfViewerScreen from './src/screens/PdfViewerScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
+import PypsCategoriesScreen from './src/screens/PypsCategoriesScreen';
+import PypsExamsScreen from './src/screens/PypsExamsScreen';
+import PypsPapersScreen from './src/screens/PypsPapersScreen';
 import ResultsTabScreen from './src/screens/ResultsTabScreen';
 import SignInScreen from './src/screens/SignInScreen';
 import SignUpScreen from './src/screens/SignUpScreen';
@@ -201,7 +207,12 @@ export default function App() {
               <TestInstructionsScreen token={token} testId={current.testId} nav={nav} />
             )}
             {current.name === 'testTaking' && (
-              <TestTakingScreen token={token} testId={current.testId} nav={nav} />
+              <TestTakingScreen
+                token={token}
+                testId={current.testId}
+                initialLanguage={current.language}
+                nav={nav}
+              />
             )}
             {current.name === 'testResult' && (
               <TestResultScreen token={token} attemptId={current.attemptId} nav={nav} />
@@ -217,6 +228,25 @@ export default function App() {
             {current.name === 'language' && <LanguagePreferenceScreen token={token} nav={nav} />}
             {current.name === 'help' && <HelpSupportScreen token={token} nav={nav} />}
             {current.name === 'studentReviews' && <StudentReviewsScreen token={token} nav={nav} />}
+            {current.name === 'pdfViewer' && (
+              <PdfViewerScreen title={current.title} fileUrl={current.fileUrl} nav={nav} />
+            )}
+            {current.name === 'pypsCategories' && (
+              <PypsCategoriesScreen token={token} nav={nav} />
+            )}
+            {current.name === 'pypsExams' && (
+              <PypsExamsScreen token={token} category={current.category} nav={nav} />
+            )}
+            {current.name === 'pypsPapers' && (
+              <PypsPapersScreen
+                token={token}
+                category={current.category}
+                examName={current.examName}
+                nav={nav}
+              />
+            )}
+            {current.name === 'ebooks' && <EbooksScreen token={token} nav={nav} />}
+            {current.name === 'freeTests' && <FreeTestsScreen token={token} nav={nav} />}
           </View>
 
           {activeTab && <BottomTabBar active={activeTab} onChange={(tab) => nav.resetToTab(tab)} />}

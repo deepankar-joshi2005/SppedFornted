@@ -42,7 +42,8 @@
           "backgroundColor": "#FFFFFF"
         }
       ],
-      "expo-sharing"
+      "expo-sharing",
+      "expo-asset"
     ],
     "extra": {
       "eas": {

@@ -27,6 +27,7 @@ import {
   ActivityItem,
 } from '../services/dashboard.service';
 import { AuthUser } from '../services/auth.service';
+import { getEbooks } from '../services/ebook.service';
 import { useLanguage } from '../context/LanguageContext';
 import { CARD_SHADOW, GOLD, GOLD_TINT, MUTED, NAVY, SOFT_SHADOW } from '../theme/colors';
 
@@ -52,10 +53,9 @@ const QUICK_GRID_ITEMS = [
   { id: 'full', title: 'Full length', icon: 'create-outline', bg: '#E3F2FD', color: '#1E88E5' },
   { id: 'pyp', title: 'PYPs', icon: 'document-text-outline', bg: '#FCE4EC', color: '#E91E63' },
   { id: 'super', title: 'Super Set', badge: 'FREE', badgeBg: '#4CAF50', icon: 'flash-outline', bg: '#F0F4C3', color: '#7CB342' },
-  { id: 'calci', title: 'Ultra Calci Test', badge: 'NEW', badgeBg: '#7C4DFF', icon: 'calculator-outline', bg: '#E0F2F1', color: '#00897B' },
+  { id: 'ebook', title: 'EBooks', icon: 'library-outline', bg: '#E0F2F1', color: '#00897B' },
   { id: 'live', title: 'Live Mock Test', badge: 'LIVE', badgeBg: '#FF5252', icon: 'journal-outline', bg: '#EDE7F6', color: '#5E35B1' },
   { id: 'sec', title: 'Sectional Test', icon: 'clipboard-outline', bg: '#F3E5F5', color: '#8E24AA' },
-  { id: 'topic', title: 'Topic Booster', icon: 'time-outline', bg: '#FFF8E1', color: '#FB8C00' },
 ];
 
 // Icon color palette — cycles through for dynamic categories
@@ -119,6 +119,40 @@ export default function HomeScreen({ user, token, nav }: Props) {
   }, [token]);
 
   useEffect(() => { load(); }, [load]);
+
+  const [hasNewEbooks, setHasNewEbooks] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    getEbooks(token)
+      .then((result) => {
+        if (!cancelled) setHasNewEbooks(result.some((e) => e.isNew));
+      })
+      .catch(() => {
+        // best-effort — badge just won't show if this fails
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
+
+  const handleGridPress = useCallback(
+    (id: string) => {
+      if (id === 'pyp') {
+        nav.push({ name: 'pypsCategories' });
+        return;
+      }
+      if (id === 'super') {
+        nav.push({ name: 'freeTests' });
+        return;
+      }
+      if (id === 'ebook') {
+        nav.push({ name: 'ebooks' });
+        return;
+      }
+      nav.resetToTab('tests');
+    },
+    [nav]
+  );
 
   const snapOpen = () => {
     isPanelOpenRef.current = true;
@@ -494,42 +528,50 @@ export default function HomeScreen({ user, token, nav }: Props) {
         {/* Quick Test Types Grid */}
         <View style={styles.quickGridCard}>
           <View style={styles.quickGridRow}>
-            {QUICK_GRID_ITEMS.slice(0, 4).map((item) => (
-              <Pressable
-                key={item.id}
-                style={styles.quickGridItem}
-                onPress={() => nav.resetToTab('tests')}
-              >
-                {item.badge && (
-                  <View style={[styles.gridBadge, { backgroundColor: item.badgeBg }]}>
-                    <Text style={styles.gridBadgeText}>{item.badge}</Text>
+            {QUICK_GRID_ITEMS.slice(0, 4).map((item) => {
+              const badgeText = item.badge ?? (item.id === 'ebook' && hasNewEbooks ? 'NEW' : undefined);
+              const badgeBg = item.badgeBg ?? '#7C4DFF';
+              return (
+                <Pressable
+                  key={item.id}
+                  style={styles.quickGridItem}
+                  onPress={() => handleGridPress(item.id)}
+                >
+                  {badgeText && (
+                    <View style={[styles.gridBadge, { backgroundColor: badgeBg }]}>
+                      <Text style={styles.gridBadgeText}>{badgeText}</Text>
+                    </View>
+                  )}
+                  <View style={[styles.gridIconBox, { backgroundColor: item.bg }]}>
+                    <Ionicons name={item.icon as any} size={22} color={item.color} />
                   </View>
-                )}
-                <View style={[styles.gridIconBox, { backgroundColor: item.bg }]}>
-                  <Ionicons name={item.icon as any} size={22} color={item.color} />
-                </View>
-                <Text style={styles.gridItemLabel}>{item.title}</Text>
-              </Pressable>
-            ))}
+                  <Text style={styles.gridItemLabel}>{item.title}</Text>
+                </Pressable>
+              );
+            })}
           </View>
           <View style={styles.quickGridRow}>
-            {QUICK_GRID_ITEMS.slice(4).map((item) => (
-              <Pressable
-                key={item.id}
-                style={styles.quickGridItem}
-                onPress={() => nav.resetToTab('tests')}
-              >
-                {item.badge && (
-                  <View style={[styles.gridBadge, { backgroundColor: item.badgeBg }]}>
-                    <Text style={styles.gridBadgeText}>{item.badge}</Text>
+            {QUICK_GRID_ITEMS.slice(4).map((item) => {
+              const badgeText = item.badge ?? (item.id === 'ebook' && hasNewEbooks ? 'NEW' : undefined);
+              const badgeBg = item.badgeBg ?? '#7C4DFF';
+              return (
+                <Pressable
+                  key={item.id}
+                  style={styles.quickGridItem}
+                  onPress={() => handleGridPress(item.id)}
+                >
+                  {badgeText && (
+                    <View style={[styles.gridBadge, { backgroundColor: badgeBg }]}>
+                      <Text style={styles.gridBadgeText}>{badgeText}</Text>
+                    </View>
+                  )}
+                  <View style={[styles.gridIconBox, { backgroundColor: item.bg }]}>
+                    <Ionicons name={item.icon as any} size={22} color={item.color} />
                   </View>
-                )}
-                <View style={[styles.gridIconBox, { backgroundColor: item.bg }]}>
-                  <Ionicons name={item.icon as any} size={22} color={item.color} />
-                </View>
-                <Text style={styles.gridItemLabel}>{item.title}</Text>
-              </Pressable>
-            ))}
+                  <Text style={styles.gridItemLabel}>{item.title}</Text>
+                </Pressable>
+              );
+            })}
           </View>
         </View>
 

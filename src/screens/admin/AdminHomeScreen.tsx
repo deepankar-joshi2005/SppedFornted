@@ -106,6 +106,18 @@ export default function AdminHomeScreen({ user, token, nav }: Props) {
       icon: 'star-outline',
       onPress: () => nav.push({ name: 'successStories' }),
     },
+    {
+      key: 'managePyq',
+      label: 'Previous Year Papers',
+      icon: 'document-text-outline',
+      onPress: () => nav.push({ name: 'pyq' }),
+    },
+    {
+      key: 'manageEbooks',
+      label: 'E-Books',
+      icon: 'book-outline',
+      onPress: () => nav.push({ name: 'ebooks' }),
+    },
   ];
 
   const initials = user.name

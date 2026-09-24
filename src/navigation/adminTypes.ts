@@ -26,7 +26,9 @@ export type AdminRoute =
   | { name: 'notifications' }
   | { name: 'banners' }
   | { name: 'teacherInfo' }
-  | { name: 'successStories' };
+  | { name: 'successStories' }
+  | { name: 'pyq' }
+  | { name: 'ebooks' };
 
 export type AdminNav = {
   push: (route: AdminRoute) => void;

@@ -5,7 +5,9 @@ export interface AttemptQuestion {
   id: string;
   subject: string;
   text: string;
+  textHindi: string | null;
   options: string[];
+  optionsHindi: string[] | null;
   order: number;
 }
 
@@ -40,8 +42,18 @@ export interface StartAttemptResponse {
 export interface SectionBreakdown {
   name: string;
   correct: number;
+  wrong: number;
+  attempted: number;
   total: number;
+  score: number;
   timeSpentSeconds: number;
+  rank: number;
+  topScore: number;
+}
+
+export interface ScoreDistributionPoint {
+  score: number;
+  percentile: number;
 }
 
 export interface AttemptResult {
@@ -59,7 +71,10 @@ export interface AttemptResult {
   timeTakenSeconds: number;
   rank: number | null;
   totalCandidates: number | null;
+  topScore: number;
+  canReattempt: boolean;
   sectionBreakdown: SectionBreakdown[];
+  scoreDistribution: ScoreDistributionPoint[];
 }
 
 export interface SolutionQuestion {
@@ -68,9 +83,12 @@ export interface SolutionQuestion {
   id: string;
   subject: string;
   text: string;
+  textHindi: string | null;
   options: string[];
+  optionsHindi: string[] | null;
   correctOptionIndex: number;
   explanation: string;
+  explanationHindi: string | null;
   selectedOption: number | null;
   isCorrect: boolean | null;
 }

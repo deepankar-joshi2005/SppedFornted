@@ -112,6 +112,22 @@ export default function NotificationsScreen({ token, nav }: Props) {
       return;
     }
 
+    // Case B2: New Previous Year Paper Added
+    if (item.targetScreen === 'pyq' || item.title.toLowerCase().includes('paper')) {
+      nav.push({ name: 'pypsCategories' });
+      return;
+    }
+
+    // Case B3: New E-Book Added
+    if (
+      item.targetScreen === 'ebooks' ||
+      item.title.toLowerCase().includes('e-book') ||
+      item.title.toLowerCase().includes('ebook')
+    ) {
+      nav.push({ name: 'ebooks' });
+      return;
+    }
+
     // Case C: New Test Series Added
     if (
       item.targetScreen === 'testList' ||
@@ -143,6 +159,16 @@ export default function NotificationsScreen({ token, nav }: Props) {
       item.title.toLowerCase().includes('test added')
     ) {
       return 'Start Test Now ›';
+    }
+    if (item.targetScreen === 'pyq' || item.title.toLowerCase().includes('paper')) {
+      return 'View Papers ›';
+    }
+    if (
+      item.targetScreen === 'ebooks' ||
+      item.title.toLowerCase().includes('e-book') ||
+      item.title.toLowerCase().includes('ebook')
+    ) {
+      return 'View E-Book ›';
     }
     if (
       item.targetScreen === 'testList' ||
