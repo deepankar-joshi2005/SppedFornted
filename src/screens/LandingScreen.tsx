@@ -1,9 +1,32 @@
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useRef } from 'react';
-import { Animated, Image, Pressable, StyleSheet, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Animated,
+  Image,
+  LayoutChangeEvent,
+  Pressable,
+  StyleSheet,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const REDIRECT_DELAY_MS = 6000;
+
+const landingImageSource = require('../../assets/landing-page.png');
+// Native pixel size of the source image (1080x2340, ~9:19.5 — matches most
+// phone screens closely). Used to replicate the same crop math that
+// resizeMode="cover" applies, so the loader bar overlay (baked into the
+// artwork) stays aligned on any screen aspect ratio.
+const landingImageSize = Image.resolveAssetSource(landingImageSource);
+
+// Loader bar position/size as a fraction (0-1) of the original 1080x2340
+// image, measured directly from the artwork's pixels.
+const BAR_FRACTION = {
+  top: 0.8821,
+  left: 0.3111,
+  width: 0.3787,
+  height: 0.0094,
+};
 
 type Props = {
   onFinish: () => void;
@@ -12,6 +35,41 @@ type Props = {
 export default function LandingScreen({ onFinish }: Props) {
   const insets = useSafeAreaInsets();
   const progress = useRef(new Animated.Value(0)).current;
+  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
+
+  const handleLayout = useCallback((event: LayoutChangeEvent) => {
+    const { width, height } = event.nativeEvent.layout;
+    setContainerSize({ width, height });
+  }, []);
+
+  const barStyle = useMemo(() => {
+    const { width: containerW, height: containerH } = containerSize;
+    const { width: imgW, height: imgH } = landingImageSize;
+    if (!containerW || !containerH || !imgW || !imgH) {
+      return null;
+    }
+
+    // Same scale resizeMode="cover" uses internally: fill the box on
+    // whichever axis needs the bigger scale, cropping the other axis
+    // symmetrically (centered) instead of stretching.
+    const scale = Math.max(containerW / imgW, containerH / imgH);
+    const renderedW = imgW * scale;
+    const renderedH = imgH * scale;
+    const offsetX = (renderedW - containerW) / 2;
+    const offsetY = (renderedH - containerH) / 2;
+
+    const left = (BAR_FRACTION.left * renderedW - offsetX) / containerW;
+    const top = (BAR_FRACTION.top * renderedH - offsetY) / containerH;
+    const width = (BAR_FRACTION.width * renderedW) / containerW;
+    const height = (BAR_FRACTION.height * renderedH) / containerH;
+
+    return {
+      left: `${left * 100}%`,
+      top: `${top * 100}%`,
+      width: `${width * 100}%`,
+      height: `${height * 100}%`,
+    } as const;
+  }, [containerSize]);
 
   useEffect(() => {
     const animation = Animated.timing(progress, {
@@ -47,23 +105,20 @@ export default function LandingScreen({ onFinish }: Props) {
       <StatusBar style="dark" />
 
       {/* Image wrapper to lock bar coordinates directly to image bounds */}
-      <View style={styles.imageWrapper}>
-        <Image
-          source={require('../../assets/landing-page.png')}
-          style={styles.hero}
-          resizeMode="stretch"
-        />
+      <View style={styles.imageWrapper} onLayout={handleLayout}>
+        <Image source={landingImageSource} style={styles.hero} resizeMode="cover" />
 
         {/*
-          Exact overlay on top of the image's loader bar:
-          Positioned directly relative to image:
-          - Top: 88.55% (moved slightly down to perfectly match the real loader in the image)
-          - Left: 31.05%, Width: 37.89%, Height: 0.95%
-          - Track: #E4E9EF, Bar: #FDCE02
+          Loader bar overlay, positioned to match the same crop math
+          resizeMode="cover" applies (see barStyle above) so it stays
+          aligned with the loader baked into the artwork on any screen size.
+          Track: #E4E9EF, Bar: #FDCE02
         */}
-        <View style={styles.barContainer} pointerEvents="none">
-          <Animated.View style={[styles.barFill, { width: barWidth }]} />
-        </View>
+        {barStyle && (
+          <View style={[styles.barContainer, barStyle]} pointerEvents="none">
+            <Animated.View style={[styles.barFill, { width: barWidth }]} />
+          </View>
+        )}
       </View>
     </Pressable>
   );
@@ -85,10 +140,6 @@ const styles = StyleSheet.create({
   },
   barContainer: {
     position: 'absolute',
-    top: '88.20%',
-    left: '30.95%',
-    width: '38.10%',
-    height: '1.05%',
     backgroundColor: '#E4E9EF',
     borderRadius: 6,
     overflow: 'hidden',
