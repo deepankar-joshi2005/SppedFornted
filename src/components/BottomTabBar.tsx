@@ -4,8 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GOLD_TINT, MUTED, NAVY } from '../theme/colors';
 
 import { useLanguage } from '../context/LanguageContext';
-
-export type TabKey = 'home' | 'tests' | 'results' | 'profile';
+import { TabKey } from '../navigation/types';
 
 type Props = {
   active: TabKey;
@@ -19,6 +18,8 @@ export default function BottomTabBar({ active, onChange }: Props) {
   const tabs: { key: TabKey; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
     { key: 'home', label: t('tab_home', 'Home'), icon: 'home-outline' },
     { key: 'tests', label: t('tab_tests', 'Tests'), icon: 'book-outline' },
+    { key: 'pyps', label: "PYP's", icon: 'document-text-outline' },
+    { key: 'ebook', label: 'E-Book', icon: 'library-outline' },
     { key: 'results', label: t('tab_results', 'Results'), icon: 'trophy-outline' },
     { key: 'profile', label: t('tab_profile', 'Profile'), icon: 'person-outline' },
   ];

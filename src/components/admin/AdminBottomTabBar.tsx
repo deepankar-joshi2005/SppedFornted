@@ -7,6 +7,9 @@ import { GOLD, MUTED, NAVY } from '../../theme/colors';
 const TABS: { key: AdminTabKey; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
   { key: 'home', label: 'Home', icon: 'home-outline' },
   { key: 'tests', label: 'Tests', icon: 'document-text-outline' },
+  { key: 'ebooks', label: 'E-Book', icon: 'library-outline' },
+  { key: 'pyq', label: "PYP's", icon: 'newspaper-outline' },
+  { key: 'sectional', label: 'Sectional', icon: 'apps-outline' },
   { key: 'students', label: 'Students', icon: 'people-outline' },
   { key: 'results', label: 'Results', icon: 'ribbon-outline' },
   { key: 'more', label: 'More', icon: 'menu-outline' },

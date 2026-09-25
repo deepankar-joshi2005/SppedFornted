@@ -4,6 +4,7 @@ import { Alert, BackHandler, Platform, ToastAndroid, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import BottomTabBar from './src/components/BottomTabBar';
 import { Nav, Route, routeTab } from './src/navigation/types';
+import CategoriesScreen from './src/screens/CategoriesScreen';
 import EbooksScreen from './src/screens/EbooksScreen';
 import EditProfileScreen from './src/screens/EditProfileScreen';
 import FreeTestsScreen from './src/screens/FreeTestsScreen';
@@ -12,6 +13,7 @@ import HomeScreen from './src/screens/HomeScreen';
 import LandingScreen from './src/screens/LandingScreen';
 import LanguagePreferenceScreen from './src/screens/LanguagePreferenceScreen';
 import LeaderboardScreen from './src/screens/LeaderboardScreen';
+import LiveClassesScreen from './src/screens/LiveClassesScreen';
 import NotificationsScreen from './src/screens/NotificationsScreen';
 import PdfViewerScreen from './src/screens/PdfViewerScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
@@ -19,8 +21,10 @@ import PypsCategoriesScreen from './src/screens/PypsCategoriesScreen';
 import PypsExamsScreen from './src/screens/PypsExamsScreen';
 import PypsPapersScreen from './src/screens/PypsPapersScreen';
 import ResultsTabScreen from './src/screens/ResultsTabScreen';
+import SectionalCategoriesScreen from './src/screens/SectionalCategoriesScreen';
 import SignInScreen from './src/screens/SignInScreen';
 import SignUpScreen from './src/screens/SignUpScreen';
+import SocialMediaScreen from './src/screens/SocialMediaScreen';
 import SolutionReviewScreen from './src/screens/SolutionReviewScreen';
 import TestInstructionsScreen from './src/screens/TestInstructionsScreen';
 import TestListScreen from './src/screens/TestListScreen';
@@ -29,8 +33,9 @@ import TestTakingScreen from './src/screens/TestTakingScreen';
 import TestsScreen from './src/screens/TestsScreen';
 import StudentReviewsScreen from './src/screens/StudentReviewsScreen';
 import AdminApp from './src/screens/admin/AdminApp';
-import { AuthUser } from './src/services/auth.service';
+import { AuthUser, logoutUser } from './src/services/auth.service';
 import { LanguageProvider } from './src/context/LanguageContext';
+import { loadAuth, saveAuth, clearAuth, StoredAuth } from './src/utils/authStorage';
 
 type AuthScreen = 'landing' | 'signup' | 'login';
 
@@ -41,6 +46,48 @@ export default function App() {
   const [token, setToken] = useState<string | null>(null);
   const [stack, setStack] = useState<Route[]>([{ name: 'tab', tab: 'home' }]);
   const lastBackPressRef = useRef(0);
+  const storedAuthRef = useRef<StoredAuth | null>(null);
+  const authCheckedRef = useRef(false);
+  const pendingLandingFinishRef = useRef(false);
+
+  const enterApp = (result: { user: AuthUser; token: string }) => {
+    setUser(result.user);
+    setToken(result.token);
+    setStack([{ name: 'tab', tab: 'home' }]);
+  };
+
+  // Resolve the saved session, then act on whichever happens second:
+  // the AsyncStorage read finishing, or the user finishing the landing
+  // screen (via its 6s timer OR a tap-to-skip — both call the same
+  // handler). This guarantees we never fall through to the Login screen
+  // just because the storage read hadn't resolved yet.
+  const finishLanding = () => {
+    const stored = storedAuthRef.current;
+    if (stored) {
+      enterApp(stored);
+    } else {
+      setAuthScreen('login');
+    }
+  };
+
+  const handleLandingFinish = () => {
+    if (authCheckedRef.current) {
+      finishLanding();
+    } else {
+      pendingLandingFinishRef.current = true;
+    }
+  };
+
+  useEffect(() => {
+    loadAuth().then((result) => {
+      storedAuthRef.current = result;
+      authCheckedRef.current = true;
+      if (pendingLandingFinishRef.current) {
+        pendingLandingFinishRef.current = false;
+        finishLanding();
+      }
+    });
+  }, []);
 
   const nav: Nav = {
     push: (route) => setStack((s) => [...s, route]),
@@ -137,7 +184,7 @@ export default function App() {
     return (
       <SafeAreaProvider>
         <StatusBar style="dark" />
-        {authScreen === 'landing' && <LandingScreen onFinish={() => setAuthScreen('login')} />}
+        {authScreen === 'landing' && <LandingScreen onFinish={handleLandingFinish} />}
         {authScreen === 'signup' && (
           <SignUpScreen
             onBack={() => setAuthScreen('login')}
@@ -154,9 +201,8 @@ export default function App() {
             onGoToSignUp={() => setAuthScreen('signup')}
             initialEmail={prefillEmail}
             onLoginSuccess={(result) => {
-              setUser(result.user);
-              setToken(result.token);
-              setStack([{ name: 'tab', tab: 'home' }]);
+              saveAuth(result.token, result.user);
+              enterApp(result);
             }}
           />
         )}
@@ -165,6 +211,8 @@ export default function App() {
   }
 
   const onLogout = () => {
+    logoutUser(token);
+    clearAuth();
     setUser(null);
     setToken(null);
     setAuthScreen('login');
@@ -194,14 +242,26 @@ export default function App() {
             {current.name === 'tab' && current.tab === 'tests' && (
               <TestsScreen token={token} nav={nav} />
             )}
+            {current.name === 'tab' && current.tab === 'pyps' && (
+              <PypsCategoriesScreen token={token} nav={nav} />
+            )}
+            {current.name === 'tab' && current.tab === 'ebook' && (
+              <EbooksScreen token={token} nav={nav} />
+            )}
             {current.name === 'tab' && current.tab === 'results' && (
               <ResultsTabScreen token={token} nav={nav} />
             )}
             {current.name === 'tab' && current.tab === 'profile' && (
               <ProfileScreen token={token} nav={nav} onLogout={onLogout} />
             )}
+            {current.name === 'categories' && <CategoriesScreen token={token} nav={nav} />}
             {current.name === 'testList' && (
-              <TestListScreen token={token} category={current.category} nav={nav} />
+              <TestListScreen
+                token={token}
+                category={current.category}
+                seriesId={current.seriesId}
+                nav={nav}
+              />
             )}
             {current.name === 'testInstructions' && (
               <TestInstructionsScreen token={token} testId={current.testId} nav={nav} />
@@ -246,7 +306,12 @@ export default function App() {
               />
             )}
             {current.name === 'ebooks' && <EbooksScreen token={token} nav={nav} />}
+            {current.name === 'sectionalCategories' && (
+              <SectionalCategoriesScreen token={token} nav={nav} />
+            )}
             {current.name === 'freeTests' && <FreeTestsScreen token={token} nav={nav} />}
+            {current.name === 'liveClasses' && <LiveClassesScreen nav={nav} />}
+            {current.name === 'socialMedia' && <SocialMediaScreen token={token} nav={nav} />}
           </View>
 
           {activeTab && <BottomTabBar active={activeTab} onChange={(tab) => nav.resetToTab(tab)} />}

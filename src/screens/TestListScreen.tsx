@@ -20,12 +20,14 @@ import {
   RazorpayOrderResponse,
   verifyRazorpayPayment,
 } from '../services/purchases.service';
+import { getSectionalSeriesTests } from '../services/sectional.service';
 import { getTestsByCategory, TestListItem, TestListResponse } from '../services/tests.service';
 import { ERROR, GOLD, MUTED, NAVY } from '../theme/colors';
 
 type Props = {
   token: string;
-  category: string;
+  category?: string;
+  seriesId?: string;
   nav: Nav;
 };
 
@@ -39,7 +41,7 @@ const filterMatches = (filter: Filter, status: TestListItem['status']): boolean 
   return status === 'completed';
 };
 
-export default function TestListScreen({ token, category, nav }: Props) {
+export default function TestListScreen({ token, category, seriesId, nav }: Props) {
   const [seriesData, setSeriesData] = useState<TestListResponse | null>(null);
   const [seriesTitle, setSeriesTitle] = useState('');
   const [bannerImage, setBannerImage] = useState<string | null>(null);
@@ -63,7 +65,9 @@ export default function TestListScreen({ token, category, nav }: Props) {
       isRefresh ? setRefreshing(true) : setLoading(true);
       setError('');
       try {
-        const result = await getTestsByCategory(token, category);
+        const result = seriesId
+          ? await getSectionalSeriesTests(token, seriesId)
+          : await getTestsByCategory(token, category as string);
         setSeriesData(result);
         setSeriesTitle(result.seriesTitle);
         setBannerImage(result.bannerImage);
@@ -74,7 +78,7 @@ export default function TestListScreen({ token, category, nav }: Props) {
         isRefresh ? setRefreshing(false) : setLoading(false);
       }
     },
-    [token, category]
+    [token, category, seriesId]
   );
 
   useEffect(() => {
@@ -148,7 +152,7 @@ export default function TestListScreen({ token, category, nav }: Props) {
           <Ionicons name="chevron-back" size={22} color={NAVY} />
         </Pressable>
         <Text style={styles.headerTitle} numberOfLines={1}>
-          {seriesTitle || `${category} Mock Tests`}
+          {seriesTitle || (category ? `${category} Mock Tests` : 'Mock Tests')}
         </Text>
         <Pressable
           style={styles.iconBtn}

@@ -1,8 +1,9 @@
-export type TabKey = 'home' | 'tests' | 'results' | 'profile';
+export type TabKey = 'home' | 'tests' | 'pyps' | 'ebook' | 'results' | 'profile';
 
 export type Route =
   | { name: 'tab'; tab: TabKey }
-  | { name: 'testList'; category: string }
+  | { name: 'categories' }
+  | { name: 'testList'; category?: string; seriesId?: string }
   | { name: 'testInstructions'; testId: string }
   | { name: 'testTaking'; attemptId: string; testId: string; language?: 'Hindi' | 'English' }
   | { name: 'testResult'; attemptId: string }
@@ -18,7 +19,10 @@ export type Route =
   | { name: 'pypsExams'; category: string }
   | { name: 'pypsPapers'; category: string; examName: string }
   | { name: 'ebooks' }
-  | { name: 'freeTests' };
+  | { name: 'sectionalCategories' }
+  | { name: 'freeTests' }
+  | { name: 'liveClasses' }
+  | { name: 'socialMedia' };
 
 export type Nav = {
   push: (route: Route) => void;
@@ -36,6 +40,12 @@ export const routeTab = (route: Route): TabKey | null => {
     case 'testResult':
     case 'leaderboard':
       return 'results';
+    case 'pypsCategories':
+    case 'pypsExams':
+    case 'pypsPapers':
+      return 'pyps';
+    case 'ebooks':
+      return 'ebook';
     default:
       return null;
   }

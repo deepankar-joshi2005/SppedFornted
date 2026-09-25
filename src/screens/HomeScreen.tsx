@@ -56,6 +56,8 @@ const QUICK_GRID_ITEMS = [
   { id: 'ebook', title: 'EBooks', icon: 'library-outline', bg: '#E0F2F1', color: '#00897B' },
   { id: 'live', title: 'Live Mock Test', badge: 'LIVE', badgeBg: '#FF5252', icon: 'journal-outline', bg: '#EDE7F6', color: '#5E35B1' },
   { id: 'sec', title: 'Sectional Test', icon: 'clipboard-outline', bg: '#F3E5F5', color: '#8E24AA' },
+  { id: 'liveClasses', title: 'Live Classes', icon: 'videocam-outline', bg: '#FFEBEE', color: '#D32F2F' },
+  { id: 'socialTag', title: 'Social Tag', icon: 'share-social-outline', bg: '#E1F5FE', color: '#0288D1' },
 ];
 
 // Icon color palette — cycles through for dynamic categories
@@ -149,6 +151,18 @@ export default function HomeScreen({ user, token, nav }: Props) {
         nav.push({ name: 'ebooks' });
         return;
       }
+      if (id === 'liveClasses') {
+        nav.push({ name: 'liveClasses' });
+        return;
+      }
+      if (id === 'socialTag') {
+        nav.push({ name: 'socialMedia' });
+        return;
+      }
+      if (id === 'sec') {
+        nav.push({ name: 'sectionalCategories' });
+        return;
+      }
       nav.resetToTab('tests');
     },
     [nav]
@@ -224,33 +238,7 @@ export default function HomeScreen({ user, token, nav }: Props) {
         },
       ];
 
-  const activitiesList: ActivityItem[] = data?.myActivities?.length
-    ? data.myActivities
-    : data?.continueTest
-    ? [
-        {
-          attemptId: data.continueTest.attemptId,
-          testId: data.continueTest.testId,
-          title: data.continueTest.title,
-          categoryTag: 'RRB NTPC Graduate',
-          totalQuestions: data.continueTest.totalQuestions,
-          questionsCompleted: data.continueTest.questionsCompleted,
-          durationMinutes: 90,
-          percent: data.continueTest.percent,
-        },
-      ]
-    : [
-        {
-          attemptId: 'default-att-1',
-          testId: 'default-test-1',
-          title: 'NTPC Graduate CBT 1',
-          categoryTag: 'RRB NTPC Graduate',
-          totalQuestions: 100,
-          questionsCompleted: 45,
-          durationMinutes: 90,
-          percent: 45,
-        },
-      ];
+  const activitiesList: ActivityItem[] = data?.myActivities ?? [];
 
   const storiesList: SuccessStoryItem[] = data?.successStories?.length
     ? data.successStories
@@ -712,7 +700,7 @@ export default function HomeScreen({ user, token, nav }: Props) {
                     {showShowAll && (
                       <Pressable
                         style={styles.trendingItem}
-                        onPress={() => nav.resetToTab('tests')}
+                        onPress={() => nav.push({ name: 'categories' })}
                       >
                         <View style={[styles.trendingIconCircle, { backgroundColor: '#F0F2F5' }]}>
                           <Ionicons name="chevron-forward" size={20} color={NAVY} />
@@ -750,42 +738,67 @@ export default function HomeScreen({ user, token, nav }: Props) {
           </View>
         </View>
 
-        <View style={styles.activitiesContainer}>
-          <View style={styles.lastTestBadge}>
-            <Text style={styles.lastTestBadgeText}>Last Test</Text>
+        {activitiesList.length > 0 ? (
+          <View style={styles.activitiesContainer}>
+            <View style={styles.lastTestBadge}>
+              <Text style={styles.lastTestBadgeText}>Last Test</Text>
+            </View>
+
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              {activitiesList.map((item) => (
+                <View style={styles.activityCard} key={item.attemptId}>
+                  <Text style={styles.activityTitle}>{item.title}</Text>
+
+                  <View style={styles.activityPillTag}>
+                    <Text style={styles.activityPillText}>• {item.categoryTag}</Text>
+                  </View>
+
+                  <View style={styles.activityFooterRow}>
+                    {item.status === 'completed' ? (
+                      <>
+                        <Text style={styles.activityStatsText}>
+                          {(item.score ?? 0).toFixed(2)} Marks   |   {(item.accuracy ?? 0).toFixed(1)}% Acc
+                        </Text>
+                        <Pressable
+                          style={styles.resultBlueBtn}
+                          onPress={() =>
+                            nav.push({ name: 'testResult', attemptId: item.attemptId })
+                          }
+                        >
+                          <Text style={styles.resultBlueText}>Result</Text>
+                        </Pressable>
+                      </>
+                    ) : (
+                      <>
+                        <Text style={styles.activityStatsText}>
+                          {item.totalQuestions} Ques   |   {item.durationMinutes} mins
+                        </Text>
+                        <Pressable
+                          style={styles.resumeGoldBtn}
+                          onPress={() =>
+                            nav.push({
+                              name: 'testTaking',
+                              attemptId: item.attemptId,
+                              testId: item.testId,
+                            })
+                          }
+                        >
+                          <Text style={styles.resumeGoldText}>Resume Test</Text>
+                        </Pressable>
+                      </>
+                    )}
+                  </View>
+                </View>
+              ))}
+            </ScrollView>
           </View>
-
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            {activitiesList.map((item, idx) => (
-              <View style={styles.activityCard} key={idx}>
-                <Text style={styles.activityTitle}>{item.title}</Text>
-
-                <View style={styles.activityPillTag}>
-                  <Text style={styles.activityPillText}>• {item.categoryTag}</Text>
-                </View>
-
-                <View style={styles.activityFooterRow}>
-                  <Text style={styles.activityStatsText}>
-                    {item.totalQuestions} Ques   |   {item.durationMinutes} mins
-                  </Text>
-
-                  <Pressable
-                    style={styles.resumeGoldBtn}
-                    onPress={() =>
-                      nav.push({
-                        name: 'testTaking',
-                        attemptId: item.attemptId,
-                        testId: item.testId,
-                      })
-                    }
-                  >
-                    <Text style={styles.resumeGoldText}>Resume Test</Text>
-                  </Pressable>
-                </View>
-              </View>
-            ))}
-          </ScrollView>
-        </View>
+        ) : (
+          <View style={styles.activitiesEmptyBox}>
+            <Text style={styles.activitiesEmptyText}>
+              No activity yet — attempt a test to see it here.
+            </Text>
+          </View>
+        )}
 
         {/* Success Stories Section */}
         <Pressable
@@ -1418,6 +1431,28 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 12,
     fontWeight: '800',
+  },
+  resultBlueBtn: {
+    backgroundColor: '#2563EB',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  resultBlueText: {
+    color: '#FFF',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  activitiesEmptyBox: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 20,
+    alignItems: 'center',
+  },
+  activitiesEmptyText: {
+    fontSize: 12.5,
+    color: MUTED,
+    textAlign: 'center',
   },
   storiesContainer: {
     marginTop: 4,

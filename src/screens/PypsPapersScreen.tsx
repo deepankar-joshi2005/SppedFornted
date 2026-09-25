@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Modal,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -10,6 +11,8 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import RazorpayCheckoutModal from '../components/RazorpayCheckoutModal';
+import { ContentOrderResponse, createContentOrder, verifyContentPayment } from '../services/contentPurchases.service';
 import { Nav } from '../navigation/types';
 import { getPyqs, PyqItem } from '../services/pyq.service';
 import { ERROR, MUTED, NAVY } from '../theme/colors';
@@ -32,6 +35,12 @@ export default function PypsPapersScreen({ token, category, examName, nav }: Pro
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
+
+  const [buyTarget, setBuyTarget] = useState<PyqItem | null>(null);
+  const [buying, setBuying] = useState(false);
+  const [buyError, setBuyError] = useState('');
+  const [razorpayOrder, setRazorpayOrder] = useState<ContentOrderResponse | null>(null);
+  const [razorpayVisible, setRazorpayVisible] = useState(false);
 
   const load = useCallback(
     async (isRefresh?: boolean) => {
@@ -56,6 +65,57 @@ export default function PypsPapersScreen({ token, category, examName, nav }: Pro
   const filtered = (papers ?? [])
     .filter((p) => p.category === category && p.examName === examName)
     .sort((a, b) => b.year - a.year);
+
+  const handleOpen = (paper: PyqItem) => {
+    if (paper.isLocked) {
+      setBuyError('');
+      setBuyTarget(paper);
+      return;
+    }
+    if (paper.fileUrl) {
+      nav.push({ name: 'pdfViewer', title: paper.title, fileUrl: paper.fileUrl });
+    }
+  };
+
+  const handleBuy = async () => {
+    if (!buyTarget) return;
+    setBuying(true);
+    setBuyError('');
+    try {
+      const order = await createContentOrder(token, 'pyq', buyTarget.id);
+      setRazorpayOrder(order);
+      setBuyTarget(null);
+      setRazorpayVisible(true);
+    } catch (err) {
+      setBuyError(err instanceof Error ? err.message : 'Payment order creation failed.');
+    } finally {
+      setBuying(false);
+    }
+  };
+
+  const handleRazorpaySuccess = async (data: {
+    razorpay_payment_id: string;
+    razorpay_order_id: string;
+    razorpay_signature: string;
+  }) => {
+    if (!razorpayOrder) return;
+    setRazorpayVisible(false);
+    setLoading(true);
+    try {
+      await verifyContentPayment(token, {
+        razorpay_payment_id: data.razorpay_payment_id,
+        razorpay_order_id: data.razorpay_order_id,
+        razorpay_signature: data.razorpay_signature,
+        itemType: 'pyq',
+        itemId: razorpayOrder.itemId,
+      });
+      load(true);
+    } catch (err) {
+      setError('Payment verification failed. Please contact support if amount was deducted.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.root} edges={['top', 'bottom']}>
@@ -95,15 +155,13 @@ export default function PypsPapersScreen({ token, category, examName, nav }: Pro
         )}
 
         {filtered.map((paper) => (
-          <Pressable
-            key={paper.id}
-            style={styles.card}
-            onPress={() =>
-              nav.push({ name: 'pdfViewer', title: paper.title, fileUrl: paper.fileUrl })
-            }
-          >
+          <Pressable key={paper.id} style={styles.card} onPress={() => handleOpen(paper)}>
             <View style={styles.cardIconWrap}>
-              <Ionicons name="document-outline" size={18} color={NAVY} />
+              <Ionicons
+                name={paper.isLocked ? 'lock-closed' : 'document-outline'}
+                size={18}
+                color={paper.isLocked ? '#92400E' : NAVY}
+              />
             </View>
             <View style={styles.cardBody}>
               <Text style={styles.cardTitle}>{paper.title}</Text>
@@ -112,10 +170,63 @@ export default function PypsPapersScreen({ token, category, examName, nav }: Pro
                 {paper.fileSize ? ` • ${formatFileSize(paper.fileSize)}` : ''}
               </Text>
             </View>
-            <Ionicons name="chevron-forward" size={16} color={MUTED} />
+            {paper.isLocked ? (
+              <View style={styles.priceBadge}>
+                <Text style={styles.priceBadgeText}>
+                  ₹{paper.isCoachingStudent && paper.coachingPrice > 0 ? paper.coachingPrice : paper.price}
+                </Text>
+              </View>
+            ) : (
+              <Ionicons name="chevron-forward" size={16} color={MUTED} />
+            )}
           </Pressable>
         ))}
       </ScrollView>
+
+      <Modal visible={!!buyTarget} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.purchaseCard}>
+            <View style={styles.lockIconWrap}>
+              <Ionicons name="lock-closed" size={28} color="#D97706" />
+            </View>
+            <Text style={styles.purchaseTitle}>Unlock {buyTarget?.title}</Text>
+            <Text style={styles.purchaseSub}>This paper is paid. Purchase to view the full PDF.</Text>
+            <Text style={styles.priceText}>
+              ₹
+              {buyTarget?.isCoachingStudent && (buyTarget?.coachingPrice ?? 0) > 0
+                ? buyTarget?.coachingPrice
+                : buyTarget?.price}
+            </Text>
+            {!!buyError && <Text style={styles.buyErrorText}>{buyError}</Text>}
+            <View style={styles.modalActions}>
+              <Pressable
+                style={[styles.modalBtn, styles.modalBtnOutline]}
+                onPress={() => setBuyTarget(null)}
+              >
+                <Text style={styles.modalBtnOutlineText}>Cancel</Text>
+              </Pressable>
+              <Pressable style={styles.modalBtn} onPress={handleBuy} disabled={buying}>
+                {buying ? (
+                  <ActivityIndicator color="#FFF" size="small" />
+                ) : (
+                  <Text style={styles.modalBtnText}>Buy Now</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <RazorpayCheckoutModal
+        visible={razorpayVisible}
+        orderData={razorpayOrder}
+        onSuccess={handleRazorpaySuccess}
+        onCancel={() => setRazorpayVisible(false)}
+        onError={(msg) => {
+          setRazorpayVisible(false);
+          setError(msg);
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -206,5 +317,91 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: MUTED,
     marginTop: 2,
+  },
+  priceBadge: {
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 10,
+  },
+  priceBadgeText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#92400E',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  purchaseCard: {
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    padding: 22,
+    alignItems: 'center',
+  },
+  lockIconWrap: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#FEF3C7',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  purchaseTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: NAVY,
+    textAlign: 'center',
+  },
+  purchaseSub: {
+    fontSize: 12.5,
+    color: MUTED,
+    textAlign: 'center',
+    marginTop: 6,
+  },
+  priceText: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: NAVY,
+    marginTop: 14,
+  },
+  buyErrorText: {
+    fontSize: 12,
+    color: ERROR,
+    marginTop: 10,
+    textAlign: 'center',
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: 10,
+    width: '100%',
+    marginTop: 18,
+  },
+  modalBtn: {
+    flex: 1,
+    backgroundColor: NAVY,
+    borderRadius: 12,
+    paddingVertical: 13,
+    alignItems: 'center',
+  },
+  modalBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+    fontSize: 13.5,
+  },
+  modalBtnOutline: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.3,
+    borderColor: '#D8D5CC',
+  },
+  modalBtnOutlineText: {
+    color: NAVY,
+    fontWeight: '700',
+    fontSize: 13.5,
   },
 });

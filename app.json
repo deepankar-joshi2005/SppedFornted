@@ -17,7 +17,6 @@
       },
       "predictiveBackGestureEnabled": false,
       "permissions": [
-        "android.permission.RECORD_AUDIO",
         "android.permission.RECORD_AUDIO"
       ]
     },
@@ -47,7 +46,7 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "fca2da59-30fe-42eb-bf88-8984dfc356d5"
+        "projectId": "584b5192-ca22-4bb6-b46a-2f22509e6bc9"
       }
     },
     "runtimeVersion": {
@@ -55,6 +54,7 @@
     },
     "updates": {
       "url": "https://u.expo.dev/fca2da59-30fe-42eb-bf88-8984dfc356d5"
-    }
+    },
+    "owner": "deepankar192005"
   }
 }

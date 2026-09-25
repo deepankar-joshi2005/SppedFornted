@@ -8,8 +8,14 @@ export interface EbookItem {
   author: string;
   description: string;
   coverImage: string | null;
-  fileUrl: string;
+  fileUrl: string | null;
   fileSize: number;
+  accessType: 'free' | 'paid';
+  price: number;
+  coachingPrice: number;
+  isCoachingStudent: boolean;
+  isPurchased: boolean;
+  isLocked: boolean;
   createdAt: string;
   isNew: boolean;
 }

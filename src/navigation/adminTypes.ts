@@ -1,4 +1,12 @@
-export type AdminTabKey = 'home' | 'tests' | 'students' | 'results' | 'more';
+export type AdminTabKey =
+  | 'home'
+  | 'tests'
+  | 'pyq'
+  | 'ebooks'
+  | 'sectional'
+  | 'students'
+  | 'results'
+  | 'more';
 
 export type AdminRoute =
   | { name: 'tab'; tab: AdminTabKey }
@@ -6,7 +14,8 @@ export type AdminRoute =
   | { name: 'addCategory'; categoryId?: string }
   | { name: 'categoryDetail'; categoryId: string }
   | { name: 'seriesList' }
-  | { name: 'createSeriesStep1'; seriesId?: string; category?: string }
+  | { name: 'sectional' }
+  | { name: 'createSeriesStep1'; seriesId?: string; category?: string; kind?: 'series' | 'sectional' }
   | { name: 'createSeriesStep2'; seriesId: string }
   | { name: 'seriesPreview'; seriesId: string }
   | { name: 'seriesTests'; seriesId: string }
@@ -28,7 +37,8 @@ export type AdminRoute =
   | { name: 'teacherInfo' }
   | { name: 'successStories' }
   | { name: 'pyq' }
-  | { name: 'ebooks' };
+  | { name: 'ebooks' }
+  | { name: 'socialMedia' };
 
 export type AdminNav = {
   push: (route: AdminRoute) => void;
@@ -72,6 +82,10 @@ export const adminRouteTab = (route: AdminRoute): AdminTabKey | null => {
   if (route.name === 'tab') return route.tab;
   if (route.name === 'studentDetail') return 'students';
   if (route.name === 'resultsForTest') return 'results';
+  if (route.name === 'pyq') return 'pyq';
+  if (route.name === 'ebooks') return 'ebooks';
+  if (route.name === 'sectional') return 'sectional';
+  if (route.name === 'createSeriesStep1' && route.kind === 'sectional') return 'sectional';
   if (TESTS_TAB_ROUTES.has(route.name)) return 'tests';
   return null;
 };

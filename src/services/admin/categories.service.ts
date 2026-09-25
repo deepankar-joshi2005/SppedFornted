@@ -124,3 +124,11 @@ export const setCategoryStatus = async (
     throw new Error(extractErrorMessage(error, 'Failed to update category status.'));
   }
 };
+
+export const deleteCategory = async (token: string, categoryId: string): Promise<void> => {
+  try {
+    await api.delete(`/admin/categories/${categoryId}`, authHeaders(token));
+  } catch (error) {
+    throw new Error(extractErrorMessage(error, 'Failed to delete category.'));
+  }
+};

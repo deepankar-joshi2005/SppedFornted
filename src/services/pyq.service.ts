@@ -7,8 +7,14 @@ export interface PyqItem {
   category: string;
   examName: string;
   year: number;
-  fileUrl: string;
+  fileUrl: string | null;
   fileSize: number;
+  accessType: 'free' | 'paid';
+  price: number;
+  coachingPrice: number;
+  isCoachingStudent: boolean;
+  isPurchased: boolean;
+  isLocked: boolean;
   createdAt: string;
 }
 

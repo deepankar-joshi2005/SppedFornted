@@ -11,6 +11,9 @@ export interface AdminEbook {
   coverImage: string | null;
   fileUrl: string;
   fileSize: number;
+  accessType: 'free' | 'paid';
+  price: number;
+  coachingPrice: number;
   displayOrder: number;
   isActive: boolean;
   createdAt: string;
@@ -24,6 +27,9 @@ export interface EbookPayload {
   coverImage?: string | null;
   fileUrl: string;
   fileSize?: number;
+  accessType?: 'free' | 'paid';
+  price?: number;
+  coachingPrice?: number;
   displayOrder?: number;
   isActive?: boolean;
 }

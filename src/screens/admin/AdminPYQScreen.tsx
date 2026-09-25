@@ -48,6 +48,9 @@ export default function AdminPYQScreen({ token, nav }: Props) {
   const [fileUrl, setFileUrl] = useState('');
   const [fileName, setFileName] = useState('');
   const [fileSize, setFileSize] = useState(0);
+  const [accessType, setAccessType] = useState<'free' | 'paid'>('free');
+  const [price, setPrice] = useState('');
+  const [coachingPrice, setCoachingPrice] = useState('');
   const [isActive, setIsActive] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -79,6 +82,9 @@ export default function AdminPYQScreen({ token, nav }: Props) {
     setFileUrl('');
     setFileName('');
     setFileSize(0);
+    setAccessType('free');
+    setPrice('');
+    setCoachingPrice('');
     setIsActive(true);
   };
 
@@ -97,6 +103,9 @@ export default function AdminPYQScreen({ token, nav }: Props) {
     setFileUrl(item.fileUrl);
     setFileName(item.fileUrl.split('/').pop() ?? '');
     setFileSize(item.fileSize);
+    setAccessType(item.accessType);
+    setPrice(item.price ? String(item.price) : '');
+    setCoachingPrice(item.coachingPrice ? String(item.coachingPrice) : '');
     setIsActive(item.isActive);
     setModalVisible(true);
   };
@@ -117,6 +126,10 @@ export default function AdminPYQScreen({ token, nav }: Props) {
       Alert.alert('Invalid year', 'Please enter a valid exam year.');
       return;
     }
+    if (accessType === 'paid' && (!price || Number(price) <= 0)) {
+      Alert.alert('Missing price', 'Please enter a regular price for this paid paper.');
+      return;
+    }
 
     setSaving(true);
     try {
@@ -127,6 +140,9 @@ export default function AdminPYQScreen({ token, nav }: Props) {
         year: yearNum,
         fileUrl,
         fileSize,
+        accessType,
+        price: accessType === 'paid' ? Number(price) : 0,
+        coachingPrice: accessType === 'paid' && coachingPrice ? Number(coachingPrice) : 0,
         isActive,
       };
       if (editing) {
@@ -196,7 +212,12 @@ export default function AdminPYQScreen({ token, nav }: Props) {
                 <Text style={styles.cardMeta} numberOfLines={1}>
                   {item.examName} • {item.category} • {item.year}
                 </Text>
-                {!item.isActive && <Text style={styles.inactiveTag}>Inactive</Text>}
+                <View style={styles.cardTagRow}>
+                  <Text style={item.accessType === 'paid' ? styles.paidTag : styles.freeTag}>
+                    {item.accessType === 'paid' ? `₹${item.price} Paid` : 'Free'}
+                  </Text>
+                  {!item.isActive && <Text style={styles.inactiveTag}>Inactive</Text>}
+                </View>
               </View>
               <Pressable onPress={() => handleDelete(item.id)} style={styles.iconBtn} hitSlop={8}>
                 <Ionicons name="trash-outline" size={20} color={ERROR} />
@@ -266,6 +287,52 @@ export default function AdminPYQScreen({ token, nav }: Props) {
                 onChange={handlePdfChange}
               />
 
+              <Text style={[styles.inputLabel, { marginTop: 14 }]}>Access</Text>
+              <View style={styles.accessRow}>
+                <Pressable
+                  style={[styles.accessBtn, accessType === 'free' && styles.accessBtnActive]}
+                  onPress={() => setAccessType('free')}
+                >
+                  <Text
+                    style={[styles.accessBtnText, accessType === 'free' && styles.accessBtnTextActive]}
+                  >
+                    Free
+                  </Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.accessBtn, accessType === 'paid' && styles.accessBtnActive]}
+                  onPress={() => setAccessType('paid')}
+                >
+                  <Text
+                    style={[styles.accessBtnText, accessType === 'paid' && styles.accessBtnTextActive]}
+                  >
+                    Paid
+                  </Text>
+                </Pressable>
+              </View>
+
+              {accessType === 'paid' && (
+                <>
+                  <Text style={styles.inputLabel}>Regular Price for Outsider Students (₹)</Text>
+                  <FormInput
+                    icon="pricetag-outline"
+                    placeholder="e.g. 49"
+                    value={price}
+                    onChangeText={setPrice}
+                    keyboardType="number-pad"
+                  />
+
+                  <Text style={styles.inputLabel}>Discounted Price for Coaching Students (₹)</Text>
+                  <FormInput
+                    icon="school-outline"
+                    placeholder="0 for free for coaching students"
+                    value={coachingPrice}
+                    onChangeText={setCoachingPrice}
+                    keyboardType="number-pad"
+                  />
+                </>
+              )}
+
               <View style={{ marginTop: 16 }}>
                 <ToggleRow
                   label="Active"
@@ -328,7 +395,10 @@ const styles = StyleSheet.create({
   cardInfo: { flex: 1, marginRight: 8 },
   cardTitle: { fontSize: 14, fontWeight: '800', color: NAVY },
   cardMeta: { fontSize: 12, color: MUTED, marginTop: 2 },
-  inactiveTag: { fontSize: 10.5, fontWeight: '700', color: ERROR, marginTop: 4 },
+  cardTagRow: { flexDirection: 'row', gap: 8, marginTop: 4 },
+  inactiveTag: { fontSize: 10.5, fontWeight: '700', color: ERROR },
+  freeTag: { fontSize: 10.5, fontWeight: '700', color: '#2E9E5B' },
+  paidTag: { fontSize: 10.5, fontWeight: '700', color: '#92400E' },
   iconBtn: { padding: 6 },
   modalOverlay: {
     flex: 1,
@@ -360,6 +430,19 @@ const styles = StyleSheet.create({
   pillText: { fontSize: 12.5, fontWeight: '600', color: MUTED },
   pillTextActive: { color: '#FFFFFF' },
   emptyPillText: { fontSize: 12, color: MUTED },
+  accessRow: { flexDirection: 'row', gap: 10, marginBottom: 6 },
+  accessBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#D9D6CC',
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+  },
+  accessBtnActive: { backgroundColor: NAVY, borderColor: NAVY },
+  accessBtnText: { fontSize: 12.5, fontWeight: '700', color: MUTED },
+  accessBtnTextActive: { color: '#FFFFFF' },
   modalActions: {
     flexDirection: 'row',
     justifyContent: 'flex-end',

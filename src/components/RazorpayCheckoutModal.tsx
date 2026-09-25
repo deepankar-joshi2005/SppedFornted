@@ -2,13 +2,20 @@ import { Ionicons } from '@expo/vector-icons';
 import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import WebView from 'react-native-webview';
-import { RazorpayOrderResponse } from '../services/purchases.service';
 import { NAVY } from '../theme/colors';
 import { buildCheckoutHtml } from '../utils/razorpayCheckout';
 
+type CheckoutOrder = {
+  keyId: string;
+  orderId: string;
+  amount: number;
+  currency: string;
+  title: string;
+};
+
 type Props = {
   visible: boolean;
-  orderData: RazorpayOrderResponse | null;
+  orderData: CheckoutOrder | null;
   onSuccess: (data: {
     razorpay_payment_id: string;
     razorpay_order_id: string;

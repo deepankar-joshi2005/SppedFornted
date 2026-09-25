@@ -10,6 +10,9 @@ export interface AdminPyq {
   year: number;
   fileUrl: string;
   fileSize: number;
+  accessType: 'free' | 'paid';
+  price: number;
+  coachingPrice: number;
   displayOrder: number;
   isActive: boolean;
   createdAt: string;
@@ -22,6 +25,9 @@ export interface PyqPayload {
   year: number;
   fileUrl: string;
   fileSize?: number;
+  accessType?: 'free' | 'paid';
+  price?: number;
+  coachingPrice?: number;
   displayOrder?: number;
   isActive?: boolean;
 }

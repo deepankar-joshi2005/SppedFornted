@@ -72,11 +72,6 @@ export default function PypsCategoriesScreen({ token, nav }: Props) {
         <View style={styles.iconBtn} />
       </View>
 
-      <View style={styles.freeBanner}>
-        <Ionicons name="pricetag-outline" size={16} color={NAVY} />
-        <Text style={styles.freeBannerText}>All papers are free for you</Text>
-      </View>
-
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         refreshControl={

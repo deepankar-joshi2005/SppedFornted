@@ -19,6 +19,7 @@ type Props = {
   token: string;
   seriesId?: string;
   initialCategory?: string;
+  kind?: 'series' | 'sectional';
   nav: AdminNav;
 };
 
@@ -28,8 +29,10 @@ export default function AdminCreateSeriesStep1Screen({
   token,
   seriesId,
   initialCategory,
+  kind = 'series',
   nav,
 }: Props) {
+  const isSectional = kind === 'sectional';
   const [categories, setCategories] = useState<string[]>([]);
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState(initialCategory ?? '');
@@ -42,10 +45,11 @@ export default function AdminCreateSeriesStep1Screen({
   const [loading, setLoading] = useState(!!seriesId);
 
   useEffect(() => {
+    if (isSectional) return;
     getCategories(token)
       .then((cats) => setCategories(cats.filter((c) => c.isActive).map((c) => c.name)))
       .catch(() => {});
-  }, [token]);
+  }, [token, isSectional]);
 
   useEffect(() => {
     if (!seriesId) return;
@@ -89,7 +93,7 @@ export default function AdminCreateSeriesStep1Screen({
       };
       const result = seriesId
         ? await updateSeries(token, seriesId, payload)
-        : await createSeries(token, payload);
+        : await createSeries(token, { ...payload, kind });
       nav.replace({ name: 'createSeriesStep2', seriesId: result._id });
     } catch (err) {
       Alert.alert('Failed to save', err instanceof Error ? err.message : '');
@@ -100,30 +104,40 @@ export default function AdminCreateSeriesStep1Screen({
 
   return (
     <SafeAreaView style={styles.root} edges={['top']}>
-      <AdminHeader title="Create Test Series" onBack={() => nav.pop()} />
+      <AdminHeader
+        title={isSectional ? 'Create Sectional Category' : 'Create Test Series'}
+        onBack={() => nav.pop()}
+      />
       <StepProgressHeader steps={['Basic Info', 'Config', 'Preview']} currentIndex={0} />
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-          <Text style={styles.label}>Test Series Name</Text>
+          <Text style={styles.label}>{isSectional ? 'Sectional Category Name' : 'Test Series Name'}</Text>
           <FormInput
             icon="folder-open-outline"
-            placeholder="SSC CGL 2026 Complete Mock Test Series"
+            placeholder={isSectional ? 'e.g. Math' : 'SSC CGL 2026 Complete Mock Test Series'}
             value={title}
-            onChangeText={setTitle}
+            onChangeText={(v) => {
+              setTitle(v);
+              if (isSectional) setCategory(v);
+            }}
           />
 
-          <Text style={styles.label}>Category</Text>
-          <View style={styles.pillRow}>
-            {categories.map((cat) => (
-              <Pressable
-                key={cat}
-                style={[styles.pill, category === cat && styles.pillActive]}
-                onPress={() => setCategory(cat)}
-              >
-                <Text style={[styles.pillText, category === cat && styles.pillTextActive]}>{cat}</Text>
-              </Pressable>
-            ))}
-          </View>
+          {!isSectional && (
+            <>
+              <Text style={styles.label}>Category</Text>
+              <View style={styles.pillRow}>
+                {categories.map((cat) => (
+                  <Pressable
+                    key={cat}
+                    style={[styles.pill, category === cat && styles.pillActive]}
+                    onPress={() => setCategory(cat)}
+                  >
+                    <Text style={[styles.pillText, category === cat && styles.pillTextActive]}>{cat}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            </>
+          )}
 
           <Text style={styles.label}>Exam Target</Text>
           <FormInput

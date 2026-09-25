@@ -12,6 +12,7 @@ export interface AuthUser {
   role: 'student' | 'admin';
   preferredLanguage?: Language;
   isCoachingStudent?: boolean;
+  profileImage?: string | null;
 }
 
 export interface AuthResponse {
@@ -55,5 +56,13 @@ export const loginUser = async (payload: LoginPayload): Promise<AuthResponse> =>
     return response.data;
   } catch (error) {
     throw new Error(extractErrorMessage(error, 'Login failed. Please try again.'));
+  }
+};
+
+export const logoutUser = async (token: string): Promise<void> => {
+  try {
+    await api.post('/auth/logout', {}, { headers: { Authorization: `Bearer ${token}` } });
+  } catch {
+    // best-effort — local session is cleared regardless
   }
 };

@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AdminHeader from '../../components/admin/AdminHeader';
 import ImagePickerBox from '../../components/admin/ImagePickerBox';
@@ -10,10 +10,11 @@ import FormInput from '../../components/FormInput';
 import { AdminNav } from '../../navigation/adminTypes';
 import {
   createCategory,
+  deleteCategory,
   getCategoryDetail,
   updateCategory,
 } from '../../services/admin/categories.service';
-import { MUTED, NAVY } from '../../theme/colors';
+import { ERROR, MUTED, NAVY } from '../../theme/colors';
 
 type Props = {
   token: string;
@@ -31,6 +32,8 @@ export default function AdminAddCategoryScreen({ token, categoryId, nav }: Props
   const [isActive, setIsActive] = useState(true);
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [counts, setCounts] = useState({ seriesCount: 0, testCount: 0 });
 
   useEffect(() => {
     if (!categoryId) return;
@@ -42,6 +45,7 @@ export default function AdminAddCategoryScreen({ token, categoryId, nav }: Props
         setIconImage(detail.iconImage);
         setBannerImage(detail.bannerImage);
         setIsActive(detail.isActive);
+        setCounts({ seriesCount: detail.seriesCount, testCount: detail.testCount });
       } catch (err) {
         Alert.alert('Failed to load category', err instanceof Error ? err.message : '');
       } finally {
@@ -49,6 +53,35 @@ export default function AdminAddCategoryScreen({ token, categoryId, nav }: Props
       }
     })();
   }, [categoryId, token]);
+
+  const handleDelete = () => {
+    if (!categoryId) return;
+    Alert.alert(
+      `Delete "${name}"?`,
+      `This will permanently delete this category along with ALL related data — ` +
+        `${counts.seriesCount} test series, ${counts.testCount} tests, their questions, ` +
+        `student attempt history and purchases. Any PYQ papers or E-Books tagged under this ` +
+        `category will be deleted too.\n\nThis action cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete Everything',
+          style: 'destructive',
+          onPress: async () => {
+            setDeleting(true);
+            try {
+              await deleteCategory(token, categoryId);
+              nav.pop();
+            } catch (err) {
+              Alert.alert('Error', err instanceof Error ? err.message : 'Failed to delete category');
+            } finally {
+              setDeleting(false);
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const handleSave = async () => {
     if (!name.trim()) {
@@ -149,6 +182,23 @@ export default function AdminAddCategoryScreen({ token, categoryId, nav }: Props
             onPress={handleSave}
             loading={saving || loading}
           />
+
+          {isEdit && (
+            <Pressable
+              style={styles.deleteBtn}
+              onPress={handleDelete}
+              disabled={deleting || loading}
+            >
+              {deleting ? (
+                <ActivityIndicator color={ERROR} size="small" />
+              ) : (
+                <>
+                  <Ionicons name="trash-outline" size={16} color={ERROR} />
+                  <Text style={styles.deleteBtnText}>Delete Category</Text>
+                </>
+              )}
+            </Pressable>
+          )}
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -185,4 +235,20 @@ const styles = StyleSheet.create({
   previewIconImage: { width: '100%', height: '100%', backgroundColor: '#D9D6CC' },
   previewTitle: { fontSize: 14, fontWeight: '800', color: NAVY },
   previewSubtitle: { fontSize: 11.5, color: MUTED, marginTop: 2 },
+  deleteBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 14,
+    paddingVertical: 13,
+    borderRadius: 30,
+    borderWidth: 1.5,
+    borderColor: ERROR,
+  },
+  deleteBtnText: {
+    color: ERROR,
+    fontWeight: '700',
+    fontSize: 13.5,
+  },
 });

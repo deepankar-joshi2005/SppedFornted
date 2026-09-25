@@ -3,9 +3,10 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import FormInput from '../components/FormInput';
+import PhotoPickerCircle from '../components/PhotoPickerCircle';
 import PrimaryButton from '../components/PrimaryButton';
 import { Nav } from '../navigation/types';
-import { getProfile, updateProfile } from '../services/profile.service';
+import { getProfile, updateProfile, updateProfileImage } from '../services/profile.service';
 import { ERROR, MUTED, NAVY } from '../theme/colors';
 import { isValidEmail, isValidMobile } from '../utils/validation';
 
@@ -20,6 +21,7 @@ export default function EditProfileScreen({ token, nav }: Props) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [mobile, setMobile] = useState('');
+  const [profileImage, setProfileImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Errors>({});
@@ -32,6 +34,7 @@ export default function EditProfileScreen({ token, nav }: Props) {
         setName(profile.name);
         setEmail(profile.email);
         setMobile(profile.mobile);
+        setProfileImage(profile.profileImage);
       } catch (err) {
         setApiError(err instanceof Error ? err.message : 'Failed to load profile.');
       } finally {
@@ -39,6 +42,15 @@ export default function EditProfileScreen({ token, nav }: Props) {
       }
     })();
   }, [token]);
+
+  const handlePhotoChange = async (url: string | null) => {
+    setProfileImage(url);
+    try {
+      await updateProfileImage(token, url);
+    } catch (err) {
+      Alert.alert('Error', err instanceof Error ? err.message : 'Failed to update profile photo.');
+    }
+  };
 
   const validate = (): boolean => {
     const next: Errors = {};
@@ -87,6 +99,10 @@ export default function EditProfileScreen({ token, nav }: Props) {
               <Text style={styles.apiErrorText}>{apiError}</Text>
             </View>
           )}
+
+          <View style={styles.photoRow}>
+            <PhotoPickerCircle token={token} value={profileImage} onChange={handlePhotoChange} />
+          </View>
 
           <Text style={styles.label}>Full Name</Text>
           <FormInput
@@ -160,6 +176,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 12,
     paddingBottom: 30,
+  },
+  photoRow: {
+    alignItems: 'center',
+    marginBottom: 20,
   },
   label: {
     fontSize: 12.5,

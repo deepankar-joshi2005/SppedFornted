@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
+  Modal,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -11,9 +12,15 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import RazorpayCheckoutModal from '../components/RazorpayCheckoutModal';
 import { resolveAssetUrl } from '../config/api';
 import { Nav } from '../navigation/types';
 import { EbookItem, getEbooks, markEbookViewed } from '../services/ebook.service';
+import {
+  ContentOrderResponse,
+  createContentOrder,
+  verifyContentPayment,
+} from '../services/contentPurchases.service';
 import { ERROR, GOLD, MUTED, NAVY } from '../theme/colors';
 
 type Props = {
@@ -26,6 +33,12 @@ export default function EbooksScreen({ token, nav }: Props) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
+
+  const [buyTarget, setBuyTarget] = useState<EbookItem | null>(null);
+  const [buying, setBuying] = useState(false);
+  const [buyError, setBuyError] = useState('');
+  const [razorpayOrder, setRazorpayOrder] = useState<ContentOrderResponse | null>(null);
+  const [razorpayVisible, setRazorpayVisible] = useState(false);
 
   const load = useCallback(
     async (isRefresh?: boolean) => {
@@ -48,13 +61,60 @@ export default function EbooksScreen({ token, nav }: Props) {
   }, [load]);
 
   const handleOpen = (item: EbookItem) => {
+    if (item.isLocked) {
+      setBuyError('');
+      setBuyTarget(item);
+      return;
+    }
     if (item.isNew) {
       setEbooks((prev) =>
         prev ? prev.map((e) => (e.id === item.id ? { ...e, isNew: false } : e)) : prev
       );
       markEbookViewed(token, item.id);
     }
-    nav.push({ name: 'pdfViewer', title: item.title, fileUrl: item.fileUrl });
+    if (item.fileUrl) {
+      nav.push({ name: 'pdfViewer', title: item.title, fileUrl: item.fileUrl });
+    }
+  };
+
+  const handleBuy = async () => {
+    if (!buyTarget) return;
+    setBuying(true);
+    setBuyError('');
+    try {
+      const order = await createContentOrder(token, 'ebook', buyTarget.id);
+      setRazorpayOrder(order);
+      setBuyTarget(null);
+      setRazorpayVisible(true);
+    } catch (err) {
+      setBuyError(err instanceof Error ? err.message : 'Payment order creation failed.');
+    } finally {
+      setBuying(false);
+    }
+  };
+
+  const handleRazorpaySuccess = async (data: {
+    razorpay_payment_id: string;
+    razorpay_order_id: string;
+    razorpay_signature: string;
+  }) => {
+    if (!razorpayOrder) return;
+    setRazorpayVisible(false);
+    setLoading(true);
+    try {
+      await verifyContentPayment(token, {
+        razorpay_payment_id: data.razorpay_payment_id,
+        razorpay_order_id: data.razorpay_order_id,
+        razorpay_signature: data.razorpay_signature,
+        itemType: 'ebook',
+        itemId: razorpayOrder.itemId,
+      });
+      load(true);
+    } catch (err) {
+      setError('Payment verification failed. Please contact support if amount was deducted.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -102,7 +162,11 @@ export default function EbooksScreen({ token, nav }: Props) {
               />
             ) : (
               <View style={styles.coverFallback}>
-                <Ionicons name="book-outline" size={22} color={NAVY} />
+                <Ionicons
+                  name={item.isLocked ? 'lock-closed' : 'book-outline'}
+                  size={22}
+                  color={item.isLocked ? '#92400E' : NAVY}
+                />
               </View>
             )}
             <View style={styles.cardBody}>
@@ -110,7 +174,7 @@ export default function EbooksScreen({ token, nav }: Props) {
                 <Text style={styles.cardTitle} numberOfLines={2}>
                   {item.title}
                 </Text>
-                {item.isNew && (
+                {item.isNew && !item.isLocked && (
                   <View style={styles.newBadge}>
                     <Text style={styles.newBadgeText}>NEW</Text>
                   </View>
@@ -119,10 +183,63 @@ export default function EbooksScreen({ token, nav }: Props) {
               {!!item.author && <Text style={styles.cardAuthor}>{item.author}</Text>}
               <Text style={styles.cardCategory}>{item.category}</Text>
             </View>
-            <Ionicons name="chevron-forward" size={16} color={MUTED} />
+            {item.isLocked ? (
+              <View style={styles.priceBadge}>
+                <Text style={styles.priceBadgeText}>
+                  ₹{item.isCoachingStudent && item.coachingPrice > 0 ? item.coachingPrice : item.price}
+                </Text>
+              </View>
+            ) : (
+              <Ionicons name="chevron-forward" size={16} color={MUTED} />
+            )}
           </Pressable>
         ))}
       </ScrollView>
+
+      <Modal visible={!!buyTarget} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.purchaseCard}>
+            <View style={styles.lockIconWrap}>
+              <Ionicons name="lock-closed" size={28} color="#D97706" />
+            </View>
+            <Text style={styles.purchaseTitle}>Unlock {buyTarget?.title}</Text>
+            <Text style={styles.purchaseSub}>This e-book is paid. Purchase to read the full PDF.</Text>
+            <Text style={styles.priceText}>
+              ₹
+              {buyTarget?.isCoachingStudent && (buyTarget?.coachingPrice ?? 0) > 0
+                ? buyTarget?.coachingPrice
+                : buyTarget?.price}
+            </Text>
+            {!!buyError && <Text style={styles.buyErrorText}>{buyError}</Text>}
+            <View style={styles.modalActions}>
+              <Pressable
+                style={[styles.modalBtn, styles.modalBtnOutline]}
+                onPress={() => setBuyTarget(null)}
+              >
+                <Text style={styles.modalBtnOutlineText}>Cancel</Text>
+              </Pressable>
+              <Pressable style={styles.modalBtn} onPress={handleBuy} disabled={buying}>
+                {buying ? (
+                  <ActivityIndicator color="#FFF" size="small" />
+                ) : (
+                  <Text style={styles.modalBtnText}>Buy Now</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <RazorpayCheckoutModal
+        visible={razorpayVisible}
+        orderData={razorpayOrder}
+        onSuccess={handleRazorpaySuccess}
+        onCancel={() => setRazorpayVisible(false)}
+        onError={(msg) => {
+          setRazorpayVisible(false);
+          setError(msg);
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -241,5 +358,91 @@ const styles = StyleSheet.create({
     fontSize: 9.5,
     fontWeight: '800',
     color: '#FFFFFF',
+  },
+  priceBadge: {
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 10,
+  },
+  priceBadgeText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#92400E',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  purchaseCard: {
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    padding: 22,
+    alignItems: 'center',
+  },
+  lockIconWrap: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#FEF3C7',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  purchaseTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: NAVY,
+    textAlign: 'center',
+  },
+  purchaseSub: {
+    fontSize: 12.5,
+    color: MUTED,
+    textAlign: 'center',
+    marginTop: 6,
+  },
+  priceText: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: NAVY,
+    marginTop: 14,
+  },
+  buyErrorText: {
+    fontSize: 12,
+    color: ERROR,
+    marginTop: 10,
+    textAlign: 'center',
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: 10,
+    width: '100%',
+    marginTop: 18,
+  },
+  modalBtn: {
+    flex: 1,
+    backgroundColor: NAVY,
+    borderRadius: 12,
+    paddingVertical: 13,
+    alignItems: 'center',
+  },
+  modalBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+    fontSize: 13.5,
+  },
+  modalBtnOutline: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.3,
+    borderColor: '#D8D5CC',
+  },
+  modalBtnOutlineText: {
+    color: NAVY,
+    fontWeight: '700',
+    fontSize: 13.5,
   },
 });

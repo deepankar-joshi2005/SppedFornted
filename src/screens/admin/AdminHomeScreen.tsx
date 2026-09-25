@@ -118,6 +118,18 @@ export default function AdminHomeScreen({ user, token, nav }: Props) {
       icon: 'book-outline',
       onPress: () => nav.push({ name: 'ebooks' }),
     },
+    {
+      key: 'manageSectional',
+      label: 'Sectional Test',
+      icon: 'apps-outline',
+      onPress: () => nav.push({ name: 'sectional' }),
+    },
+    {
+      key: 'manageSocialMedia',
+      label: 'Social Media Links',
+      icon: 'share-social-outline',
+      onPress: () => nav.push({ name: 'socialMedia' }),
+    },
   ];
 
   const initials = user.name

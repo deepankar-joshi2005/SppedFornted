@@ -1,10 +1,14 @@
+import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import AuthLayout from '../components/AuthLayout';
 import FormInput from '../components/FormInput';
 import PrimaryButton from '../components/PrimaryButton';
 import { registerUser, AuthResponse } from '../services/auth.service';
-import { MUTED } from '../theme/colors';
+import { updateProfileImage } from '../services/profile.service';
+import { uploadImage } from '../services/upload.service';
+import { MUTED, NAVY } from '../theme/colors';
 import { isValidEmail, isValidMobile, isStrongPassword, PASSWORD_HINT } from '../utils/validation';
 
 type Props = {
@@ -25,9 +29,28 @@ export default function SignUpScreen({ onBack, onSignUpSuccess, onGoToLogin }: P
   const [state, setState] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [photoMimeType, setPhotoMimeType] = useState<string | null | undefined>(null);
   const [errors, setErrors] = useState<Errors>({});
   const [apiError, setApiError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const pickPhoto = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Permission needed', 'Please allow photo access to add a profile photo.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      quality: 0.7,
+      allowsEditing: true,
+      aspect: [1, 1],
+    });
+    if (result.canceled || !result.assets?.[0]) return;
+    setPhotoUri(result.assets[0].uri);
+    setPhotoMimeType(result.assets[0].mimeType);
+  };
 
   const validate = (): boolean => {
     const next: Errors = {};
@@ -60,6 +83,20 @@ export default function SignUpScreen({ onBack, onSignUpSuccess, onGoToLogin }: P
         state: state.trim(),
         password,
       });
+
+      if (photoUri) {
+        try {
+          const url = await uploadImage(result.token, {
+            uri: photoUri,
+            name: `profile-${Date.now()}.jpg`,
+            mimeType: photoMimeType,
+          });
+          await updateProfileImage(result.token, url);
+        } catch {
+          // Account creation already succeeded — photo can be added later from Edit Profile.
+        }
+      }
+
       onSignUpSuccess(result);
     } catch (error) {
       setApiError(error instanceof Error ? error.message : 'Sign up failed. Please try again.');
@@ -82,6 +119,19 @@ export default function SignUpScreen({ onBack, onSignUpSuccess, onGoToLogin }: P
           <Text style={styles.apiErrorText}>{apiError}</Text>
         </View>
       )}
+
+      <View style={styles.photoRow}>
+        <Pressable style={styles.photoCircle} onPress={pickPhoto} disabled={loading}>
+          {loading && photoUri ? (
+            <ActivityIndicator color={NAVY} />
+          ) : photoUri ? (
+            <Image source={{ uri: photoUri }} style={styles.photoImage} />
+          ) : (
+            <Ionicons name="camera-outline" size={30} color={MUTED} />
+          )}
+        </Pressable>
+        <Text style={styles.photoHint}>Profile Photo (optional)</Text>
+      </View>
 
       <FormInput
         icon="person-outline"
@@ -149,6 +199,31 @@ export default function SignUpScreen({ onBack, onSignUpSuccess, onGoToLogin }: P
 }
 
 const styles = StyleSheet.create({
+  photoRow: {
+    alignItems: 'center',
+    marginBottom: 18,
+  },
+  photoCircle: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    backgroundColor: '#F1F0EA',
+    borderWidth: 1.5,
+    borderColor: '#D9D6CC',
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  photoImage: {
+    width: '100%',
+    height: '100%',
+  },
+  photoHint: {
+    marginTop: 8,
+    fontSize: 11.5,
+    color: MUTED,
+  },
   hint: {
     marginTop: -8,
     marginBottom: 14,

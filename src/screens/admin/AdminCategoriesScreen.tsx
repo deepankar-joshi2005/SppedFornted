@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -16,6 +17,7 @@ import ThreeDotMenu from '../../components/admin/ThreeDotMenu';
 import { AdminNav } from '../../navigation/adminTypes';
 import {
   AdminCategory,
+  deleteCategory,
   getCategories,
   setCategoryStatus,
 } from '../../services/admin/categories.service';
@@ -61,6 +63,31 @@ export default function AdminCategoriesScreen({ token, nav }: Props) {
     } catch (err) {
       // no-op: list will simply not reflect the change; user can retry
     }
+  };
+
+  const confirmDelete = (category: AdminCategory) => {
+    Alert.alert(
+      `Delete "${category.name}"?`,
+      `This will permanently delete this category along with ALL related data — ` +
+        `${category.seriesCount} test series, ${category.testCount} tests, their questions, ` +
+        `student attempt history and purchases. Any PYQ papers or E-Books tagged under this ` +
+        `category will be deleted too.\n\nThis action cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete Everything',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteCategory(token, category.id);
+              load(true);
+            } catch (err) {
+              Alert.alert('Error', err instanceof Error ? err.message : 'Failed to delete category');
+            }
+          },
+        },
+      ]
+    );
   };
 
   const filtered = (categories ?? []).filter((c) =>
@@ -148,6 +175,13 @@ export default function AdminCategoriesScreen({ token, nav }: Props) {
                   label: category.isActive ? 'Deactivate' : 'Activate',
                   icon: category.isActive ? 'eye-off-outline' : 'eye-outline',
                   onPress: () => toggleActive(category),
+                },
+                {
+                  key: 'delete',
+                  label: 'Delete',
+                  icon: 'trash-outline',
+                  destructive: true,
+                  onPress: () => confirmDelete(category),
                 },
               ]}
             />

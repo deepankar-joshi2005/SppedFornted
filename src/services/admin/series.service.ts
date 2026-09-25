@@ -3,12 +3,16 @@ import api from '../../config/api';
 
 export type SeriesStatus = 'draft' | 'published';
 export type AccessType = 'free' | 'paid';
+export type SeriesKind = 'series' | 'sectional';
 
 export interface AdminSeriesListItem {
   id: string;
   title: string;
   category: string;
   status: SeriesStatus;
+  accessType: AccessType;
+  price: number;
+  coachingPrice: number;
   testCount: number;
   totalQuestions: number;
   studentCount: number;
@@ -54,6 +58,7 @@ export interface AdminSeriesDetail {
 export interface CreateSeriesPayload {
   title: string;
   category: string;
+  kind?: SeriesKind;
   examTarget?: string;
   description?: string;
   shortDescription?: string;
@@ -100,7 +105,7 @@ const extractErrorMessage = (error: unknown, fallback: string): string => {
 
 export const listSeries = async (
   token: string,
-  params?: { status?: SeriesStatus; search?: string }
+  params?: { status?: SeriesStatus; search?: string; kind?: SeriesKind }
 ): Promise<AdminSeriesListResponse> => {
   try {
     const response = await api.get<AdminSeriesListResponse>('/admin/series', {

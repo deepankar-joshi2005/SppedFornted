@@ -1,9 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLanguage } from '../context/LanguageContext';
 import NotificationBell from '../components/NotificationBell';
+import { resolveAssetUrl } from '../config/api';
 import { Nav, Route } from '../navigation/types';
 import { getProfile, ProfileData } from '../services/profile.service';
 import { ERROR, GOLD_TINT, MUTED, NAVY, SOFT_SHADOW } from '../theme/colors';
@@ -75,7 +76,14 @@ export default function ProfileScreen({ token, nav, onLogout }: Props) {
         <ScrollView contentContainerStyle={styles.scrollContent}>
           <View style={styles.profileRow}>
             <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{getInitials(profile.name)}</Text>
+              {profile.profileImage ? (
+                <Image
+                  source={{ uri: resolveAssetUrl(profile.profileImage) }}
+                  style={styles.avatarImage}
+                />
+              ) : (
+                <Text style={styles.avatarText}>{getInitials(profile.name)}</Text>
+              )}
             </View>
             <View style={styles.profileInfo}>
               <Text style={styles.name}>{profile.name}</Text>
@@ -202,6 +210,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#EEF1F7',
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
   },
   avatarText: {
     fontSize: 24,

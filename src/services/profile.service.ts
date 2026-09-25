@@ -9,6 +9,7 @@ export interface ProfileData {
   email: string;
   mobile: string;
   preferredLanguage: Language;
+  profileImage: string | null;
   testsAttempted: number;
   avgAccuracy: number;
   bestRank: number | null;
@@ -41,6 +42,18 @@ export const updateProfile = async (
     return response.data;
   } catch (error) {
     throw new Error(extractErrorMessage(error, 'Failed to update profile. Please try again.'));
+  }
+};
+
+export const updateProfileImage = async (
+  token: string,
+  profileImage: string | null
+): Promise<{ profileImage: string | null }> => {
+  try {
+    const response = await api.patch('/profile/photo', { profileImage }, authHeaders(token));
+    return response.data;
+  } catch (error) {
+    throw new Error(extractErrorMessage(error, 'Failed to update profile photo. Please try again.'));
   }
 };
 

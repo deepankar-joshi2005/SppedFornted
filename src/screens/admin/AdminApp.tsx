@@ -34,6 +34,8 @@ import AdminTeacherInfoScreen from './AdminTeacherInfoScreen';
 import AdminSuccessStoriesScreen from './AdminSuccessStoriesScreen';
 import AdminPYQScreen from './AdminPYQScreen';
 import AdminEBooksScreen from './AdminEBooksScreen';
+import AdminSectionalScreen from './AdminSectionalScreen';
+import AdminSocialMediaScreen from './AdminSocialMediaScreen';
 
 type Props = {
   user: AuthUser;
@@ -101,6 +103,15 @@ export default function AdminApp({ user, token, onLogout }: Props) {
         {current.name === 'tab' && current.tab === 'results' && (
           <AdminResultsScreen token={token} nav={nav} />
         )}
+        {current.name === 'tab' && current.tab === 'pyq' && (
+          <AdminPYQScreen token={token} nav={nav} />
+        )}
+        {current.name === 'tab' && current.tab === 'ebooks' && (
+          <AdminEBooksScreen token={token} nav={nav} />
+        )}
+        {current.name === 'tab' && current.tab === 'sectional' && (
+          <AdminSectionalScreen token={token} nav={nav} />
+        )}
         {current.name === 'tab' && current.tab === 'more' && (
           <AdminMoreScreen user={user} onLogout={onLogout} />
         )}
@@ -128,11 +139,13 @@ export default function AdminApp({ user, token, onLogout }: Props) {
         )}
 
         {current.name === 'seriesList' && <AdminSeriesListScreen token={token} nav={nav} />}
+        {current.name === 'sectional' && <AdminSectionalScreen token={token} nav={nav} />}
         {current.name === 'createSeriesStep1' && (
           <AdminCreateSeriesStep1Screen
             token={token}
             seriesId={current.seriesId}
             initialCategory={current.category}
+            kind={current.kind}
             nav={nav}
           />
         )}
@@ -199,6 +212,7 @@ export default function AdminApp({ user, token, onLogout }: Props) {
         {current.name === 'successStories' && <AdminSuccessStoriesScreen token={token} nav={nav} />}
         {current.name === 'pyq' && <AdminPYQScreen token={token} nav={nav} />}
         {current.name === 'ebooks' && <AdminEBooksScreen token={token} nav={nav} />}
+        {current.name === 'socialMedia' && <AdminSocialMediaScreen token={token} nav={nav} />}
       </View>
 
       {showTabBar && activeTab && (

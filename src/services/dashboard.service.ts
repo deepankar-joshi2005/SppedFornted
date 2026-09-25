@@ -72,10 +72,13 @@ export interface ActivityItem {
   testId: string;
   title: string;
   categoryTag: string;
+  status: 'in-progress' | 'completed';
   totalQuestions: number;
   questionsCompleted: number;
   durationMinutes: number;
   percent: number;
+  score: number | null;
+  accuracy: number | null;
 }
 
 export interface SuccessStoryItem {
