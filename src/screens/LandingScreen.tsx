@@ -13,19 +13,19 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 const REDIRECT_DELAY_MS = 6000;
 
 const landingImageSource = require('../../assets/landing-page.png');
-// Native pixel size of the source image (1080x2340, ~9:19.5 — matches most
+// Native pixel size of the source image (852x1846, ~9:19.5 — matches most
 // phone screens closely). Used to replicate the same crop math that
 // resizeMode="cover" applies, so the loader bar overlay (baked into the
 // artwork) stays aligned on any screen aspect ratio.
 const landingImageSize = Image.resolveAssetSource(landingImageSource);
 
-// Loader bar position/size as a fraction (0-1) of the original 1080x2340
-// image, measured directly from the artwork's pixels.
+// Loader bar position/size as a fraction (0-1) of the 852x1846 image,
+// measured directly from the artwork's pixels.
 const BAR_FRACTION = {
-  top: 0.8821,
-  left: 0.3111,
-  width: 0.3787,
-  height: 0.0094,
+  top: 0.8639,
+  left: 0.2653,
+  width: 0.4695,
+  height: 0.0095,
 };
 
 type Props = {

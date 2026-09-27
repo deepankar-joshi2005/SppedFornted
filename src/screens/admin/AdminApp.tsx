@@ -36,6 +36,7 @@ import AdminPYQScreen from './AdminPYQScreen';
 import AdminEBooksScreen from './AdminEBooksScreen';
 import AdminSectionalScreen from './AdminSectionalScreen';
 import AdminSocialMediaScreen from './AdminSocialMediaScreen';
+import AdminUpcomingMocksScreen from './AdminUpcomingMocksScreen';
 
 type Props = {
   user: AuthUser;
@@ -213,6 +214,7 @@ export default function AdminApp({ user, token, onLogout }: Props) {
         {current.name === 'pyq' && <AdminPYQScreen token={token} nav={nav} />}
         {current.name === 'ebooks' && <AdminEBooksScreen token={token} nav={nav} />}
         {current.name === 'socialMedia' && <AdminSocialMediaScreen token={token} nav={nav} />}
+        {current.name === 'upcomingMocks' && <AdminUpcomingMocksScreen token={token} nav={nav} />}
       </View>
 
       {showTabBar && activeTab && (

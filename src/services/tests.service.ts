@@ -49,9 +49,9 @@ export interface TestListResponse {
 
 export interface TestInstructionSection {
   name: string;      // e.g. "Part A"
-  subject: string;   // e.g. "General Intelligence and Reasoning"
   startNo: number;
   endNo: number;
+  durationMinutes?: number;
 }
 
 export interface TestInstructions {
@@ -65,10 +65,9 @@ export interface TestInstructions {
   negativeMarks: number;
   /** Marks per correct question (optional; computed from totalMarks/totalQuestions if absent) */
   marksPerQuestion?: number;
-  /** Language admin configured for this test: 'Hindi' | 'English' | 'Both' */
-  language?: string;
   /** Section breakdown, mirrors subjectSections from the attempt */
   subjectSections?: TestInstructionSection[];
+  divideSectionsByTime?: boolean;
 }
 
 export interface FreeTestItem {

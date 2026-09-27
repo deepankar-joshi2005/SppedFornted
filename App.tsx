@@ -1,4 +1,5 @@
 import { StatusBar } from 'expo-status-bar';
+import { usePreventScreenCapture } from 'expo-screen-capture';
 import { useEffect, useRef, useState } from 'react';
 import { Alert, BackHandler, Platform, ToastAndroid, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -40,6 +41,9 @@ import { loadAuth, saveAuth, clearAuth, StoredAuth } from './src/utils/authStora
 type AuthScreen = 'landing' | 'signup' | 'login';
 
 export default function App() {
+  // Prevent screenshots and screen recording across the entire app
+  usePreventScreenCapture();
+
   const [authScreen, setAuthScreen] = useState<AuthScreen>('landing');
   const [prefillEmail, setPrefillEmail] = useState('');
   const [user, setUser] = useState<AuthUser | null>(null);

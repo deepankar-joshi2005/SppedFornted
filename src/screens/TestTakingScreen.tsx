@@ -18,10 +18,19 @@ import { Nav } from '../navigation/types';
 import {
   AttemptQuestion,
   saveAnswer,
+  SectionLockedError,
+  SectionProgress,
   StartAttemptResponse,
   startAttempt,
   submitAttempt,
+  submitSection,
 } from '../services/attempts.service';
+import {
+  getQuestionForLanguageAsync,
+  getQuestionForLanguageSync,
+  preloadQuestionTranslations,
+  TranslatedQuestionResult,
+} from '../services/translate.service';
 import { ERROR, GOLD, MUTED, NAVY } from '../theme/colors';
 
 type Props = {
@@ -37,6 +46,7 @@ type QStatus = 'attempted' | 'marked' | 'notAnswered' | 'notVisited';
 const OPTION_LETTERS = ['A', 'B', 'C', 'D'];
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const PALETTE_WIDTH = SCREEN_WIDTH * 0.7;
+const IS_SMALL_SCREEN = SCREEN_WIDTH < 360;
 
 const STATUS_COLORS: Record<QStatus, string> = {
   attempted: '#22C55E',
@@ -73,6 +83,9 @@ export default function TestTakingScreen({ token, testId, initialLanguage, nav }
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [visited, setVisited] = useState<Record<string, boolean>>({});
+  const [sectionProgress, setSectionProgress] = useState<SectionProgress[]>([]);
+  const [activeSectionName, setActiveSectionName] = useState<string | null>(null);
+  const [sectionNotice, setSectionNotice] = useState('');
   const submittedRef = useRef(false);
   const questionTimeRef = useRef<Record<string, number>>({});
   const questionEnteredAtRef = useRef<number>(Date.now());
@@ -108,6 +121,14 @@ export default function TestTakingScreen({ token, testId, initialLanguage, nav }
     pendingSavesRef.current.push(promise);
   };
 
+  const handleSectionLockError = (err: unknown) => {
+    if (err instanceof SectionLockedError) {
+      setSectionProgress(err.sectionProgress);
+      setActiveSectionName(err.activeSectionName);
+      setSectionNotice('That section has ended.');
+    }
+  };
+
   useEffect(() => {
     if (Platform.OS === 'web') return;
     ScreenCapture.preventScreenCaptureAsync();
@@ -120,6 +141,10 @@ export default function TestTakingScreen({ token, testId, initialLanguage, nav }
     (async () => {
       try {
         const result = await startAttempt(token, testId);
+        if (result.attemptStatus === 'completed') {
+          nav.replace({ name: 'testResult', attemptId: result.attemptId });
+          return;
+        }
         setSession(result);
         const initialAnswers: Record<string, AnswerState> = {};
         const initialVisited: Record<string, boolean> = {};
@@ -131,11 +156,28 @@ export default function TestTakingScreen({ token, testId, initialLanguage, nav }
           };
           if (existing) initialVisited[q.id] = true;
         });
-        if (result.questions[0]) initialVisited[result.questions[0].id] = true;
+
+        setSectionProgress(result.sectionProgress);
+        setActiveSectionName(result.activeSectionName);
+        const activeSec = result.sectionProgress.find((s) => s.name === result.activeSectionName);
+        const initialIndex =
+          result.test.divideSectionsByTime && activeSec ? activeSec.startNo - 1 : 0;
+
+        const firstQuestion = result.questions[initialIndex];
+        if (firstQuestion) initialVisited[firstQuestion.id] = true;
+        setIndex(initialIndex);
         setAnswers(initialAnswers);
         setVisited(initialVisited);
-        const elapsed = (Date.now() - new Date(result.startedAt).getTime()) / 1000;
-        setRemainingSeconds(Math.max(0, result.test.durationMinutes * 60 - elapsed));
+        preloadQuestionTranslations(result.questions, 'Hindi');
+        preloadQuestionTranslations(result.questions, 'English');
+
+        if (result.test.divideSectionsByTime && activeSec?.startedAt) {
+          const elapsed = (Date.now() - new Date(activeSec.startedAt).getTime()) / 1000;
+          setRemainingSeconds(Math.max(0, (activeSec.durationSeconds ?? 0) - elapsed));
+        } else {
+          const elapsed = (Date.now() - new Date(result.startedAt).getTime()) / 1000;
+          setRemainingSeconds(Math.max(0, result.test.durationMinutes * 60 - elapsed));
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load test.');
       } finally {
@@ -176,22 +218,99 @@ export default function TestTakingScreen({ token, testId, initialLanguage, nav }
     }
   }, [session, token, nav, index, answers]);
 
+  // Submits/locks one section and moves on to whichever section the admin
+  // configured to run next — used both when a section's timer hits zero and
+  // when the student taps "Submit Section" manually.
+  const handleSectionAdvance = useCallback(
+    async (name: string) => {
+      if (!session) return;
+      const activeQuestion = session.questions[index];
+      if (activeQuestion) {
+        const elapsed = (Date.now() - questionEnteredAtRef.current) / 1000;
+        const total = (questionTimeRef.current[activeQuestion.id] ?? 0) + elapsed;
+        questionTimeRef.current[activeQuestion.id] = total;
+        questionEnteredAtRef.current = Date.now();
+        const answer = answers[activeQuestion.id];
+        trackSave(
+          saveAnswer(token, session.attemptId, {
+            questionId: activeQuestion.id,
+            selectedOption: answer?.selectedOption ?? null,
+            markedForReview: answer?.markedForReview ?? false,
+            timeSpentSeconds: total,
+          }).catch(() => {})
+        );
+      }
+      try {
+        const res = await submitSection(token, session.attemptId, name);
+        if (res.completed) {
+          nav.replace({ name: 'testResult', attemptId: session.attemptId });
+          return;
+        }
+        setSectionProgress(res.sectionProgress);
+        setActiveSectionName(res.activeSectionName);
+        const next = res.sectionProgress.find((s) => s.name === res.activeSectionName);
+        if (next) {
+          setIndex(next.startNo - 1);
+          setRemainingSeconds(next.durationSeconds ?? 0);
+          setSectionNotice(`Now on: ${next.name}`);
+          const nextQuestion = session.questions[next.startNo - 1];
+          if (nextQuestion) {
+            setVisited((prev) => (prev[nextQuestion.id] ? prev : { ...prev, [nextQuestion.id]: true }));
+          }
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to submit section.');
+      }
+    },
+    [session, token, index, answers]
+  );
+
+  const divideByTime = session?.test.divideSectionsByTime ?? false;
+
   useEffect(() => {
     if (!session || isPaused) return;
     const timer = setInterval(() => {
       setRemainingSeconds((prev) => {
         if (prev <= 1) {
           clearInterval(timer);
-          handleSubmit();
+          if (divideByTime && activeSectionName) {
+            handleSectionAdvance(activeSectionName);
+          } else {
+            handleSubmit();
+          }
           return 0;
         }
         return prev - 1;
       });
     }, 1000);
     return () => clearInterval(timer);
-  }, [session, handleSubmit, isPaused]);
+  }, [session, handleSubmit, handleSectionAdvance, isPaused, divideByTime, activeSectionName]);
 
   const currentQuestion: AttemptQuestion | undefined = session?.questions[index];
+  const [translatedQuestion, setTranslatedQuestion] = useState<TranslatedQuestionResult | null>(null);
+  const [isTranslating, setIsTranslating] = useState(false);
+
+  useEffect(() => {
+    if (!currentQuestion) return;
+
+    const syncRes = getQuestionForLanguageSync(currentQuestion, language);
+    if (syncRes) {
+      setTranslatedQuestion(syncRes);
+      setIsTranslating(false);
+    } else {
+      setIsTranslating(true);
+      let isCancelled = false;
+      getQuestionForLanguageAsync(currentQuestion, language).then((res) => {
+        if (!isCancelled) {
+          setTranslatedQuestion(res);
+          setIsTranslating(false);
+        }
+      });
+      return () => {
+        isCancelled = true;
+      };
+    }
+  }, [currentQuestion, language]);
 
   const persistAnswer = (questionId: string, patch: Partial<AnswerState>) => {
     setAnswers((prev) => {
@@ -208,7 +327,7 @@ export default function TestTakingScreen({ token, testId, initialLanguage, nav }
             questionId,
             selectedOption: next[questionId].selectedOption,
             markedForReview: next[questionId].markedForReview,
-          }).catch(() => {})
+          }).catch(handleSectionLockError)
         );
       }
       return next;
@@ -229,14 +348,20 @@ export default function TestTakingScreen({ token, testId, initialLanguage, nav }
         selectedOption: answer?.selectedOption ?? null,
         markedForReview: answer?.markedForReview ?? false,
         timeSpentSeconds: total,
-      }).catch(() => {})
+      }).catch(handleSectionLockError)
     );
   };
 
+  const activeSection = sectionProgress.find((s) => s.name === activeSectionName) ?? null;
+
   const goToIndex = (newIndex: number) => {
+    let clamped = newIndex;
+    if (divideByTime && activeSection) {
+      clamped = Math.max(activeSection.startNo - 1, Math.min(activeSection.endNo - 1, newIndex));
+    }
     commitCurrentQuestionTime();
-    setIndex(newIndex);
-    const targetQuestion = session?.questions[newIndex];
+    setIndex(clamped);
+    const targetQuestion = session?.questions[clamped];
     if (targetQuestion) {
       setVisited((prev) => (prev[targetQuestion.id] ? prev : { ...prev, [targetQuestion.id]: true }));
     }
@@ -271,11 +396,120 @@ export default function TestTakingScreen({ token, testId, initialLanguage, nav }
 
   const overallCounts = session ? countStatuses(session.questions) : { attempted: 0, notVisited: 0, notAnswered: 0, marked: 0 };
 
+  const hasRealSections = (session?.test.subjectSections.length ?? 0) > 0;
   const sectionsToRender = session
     ? session.test.subjectSections.length > 0
       ? session.test.subjectSections
       : [{ name: '', startNo: 1, endNo: totalQuestions }]
     : [];
+  const submitAllLabel = hasRealSections ? 'Submit All' : 'Submit Test';
+  const allSectionsSubmitted =
+    sectionProgress.length > 0 && sectionProgress.every((s) => s.status === 'submitted');
+  // While a test is divided by time, "Submit All" only makes sense once every
+  // section has already been individually submitted — until then, submitting
+  // the current section (below) is the only way to move forward.
+  const showSubmitAll = !divideByTime || allSectionsSubmitted;
+
+  const submitSectionManually = async (name: string) => {
+    if (!session) return;
+    try {
+      const res = await submitSection(token, session.attemptId, name);
+      setSectionProgress(res.sectionProgress);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to submit section.');
+    }
+  };
+
+  const renderSectionCells = (section: { name: string; startNo: number; endNo: number }) => {
+    if (!session) return null;
+    const sectionQs = session.questions.slice(section.startNo - 1, section.endNo);
+    const counts = countStatuses(sectionQs);
+    return (
+      <>
+        <View style={styles.sectionCountsRow}>
+          <View style={styles.sectionCountItem}>
+            <View style={[styles.sectionCountDot, { backgroundColor: STATUS_COLORS.attempted }]} />
+            <Text style={styles.sectionCountText}>{counts.attempted}</Text>
+          </View>
+          <View style={styles.sectionCountItem}>
+            <View style={[styles.sectionCountDot, styles.legendDotOutline]} />
+            <Text style={styles.sectionCountText}>{counts.notVisited}</Text>
+          </View>
+          <View style={styles.sectionCountItem}>
+            <View style={[styles.sectionCountDot, { backgroundColor: STATUS_COLORS.notAnswered }]} />
+            <Text style={styles.sectionCountText}>{counts.notAnswered}</Text>
+          </View>
+          <View style={styles.sectionCountItem}>
+            <View style={[styles.sectionCountDot, { backgroundColor: STATUS_COLORS.marked }]} />
+            <Text style={styles.sectionCountText}>{counts.marked}</Text>
+          </View>
+        </View>
+
+        {paletteTab === 'grid' ? (
+          <View style={styles.paletteGrid}>
+            {sectionQs.map((q, localIdx) => {
+              const globalIdx = section.startNo - 1 + localIdx;
+              const status = getStatus(q);
+              const isCurrent = globalIdx === index;
+              const bg = STATUS_COLORS[status];
+              return (
+                <Pressable
+                  key={q.id}
+                  style={[
+                    styles.paletteCell,
+                    { backgroundColor: bg, borderColor: status === 'notVisited' ? '#CBD5E1' : bg },
+                    isCurrent && styles.paletteCellCurrent,
+                  ]}
+                  onPress={() => {
+                    goToIndex(globalIdx);
+                    closePalette();
+                  }}
+                >
+                  <Text style={[styles.paletteCellText, status === 'notVisited' && styles.paletteCellTextDark]}>
+                    {globalIdx + 1}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        ) : (
+          <View style={styles.paletteList}>
+            {sectionQs.map((q, localIdx) => {
+              const globalIdx = section.startNo - 1 + localIdx;
+              const status = getStatus(q);
+              const isCurrent = globalIdx === index;
+              const bg = STATUS_COLORS[status];
+              return (
+                <Pressable
+                  key={q.id}
+                  style={[styles.paletteListRow, isCurrent && styles.paletteListRowCurrent]}
+                  onPress={() => {
+                    goToIndex(globalIdx);
+                    closePalette();
+                  }}
+                >
+                  <View
+                    style={[
+                      styles.paletteListDot,
+                      { backgroundColor: bg, borderColor: status === 'notVisited' ? '#CBD5E1' : bg },
+                    ]}
+                  >
+                    <Text style={[styles.paletteListDotText, status === 'notVisited' && styles.paletteCellTextDark]}>
+                      {globalIdx + 1}
+                    </Text>
+                  </View>
+                  <Text style={styles.paletteListLabel} numberOfLines={1}>
+                    {q.subject}
+                  </Text>
+                  <Text style={styles.paletteListStatus}>{STATUS_LABELS[status]}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        )}
+      </>
+    );
+  };
 
   if (loading) {
     return (
@@ -299,11 +533,17 @@ export default function TestTakingScreen({ token, testId, initialLanguage, nav }
 
   const currentAnswer = answers[currentQuestion.id] ?? { selectedOption: null, markedForReview: false };
   const isLast = index === totalQuestions - 1;
-  const hasHindi = !!(currentQuestion.textHindi && currentQuestion.optionsHindi);
+  const isLastOfActiveSection = divideByTime && activeSection ? index === activeSection.endNo - 1 : isLast;
   const displayedText =
-    language === 'Hindi' && currentQuestion.textHindi ? currentQuestion.textHindi : currentQuestion.text;
+    translatedQuestion?.text ??
+    (language === 'Hindi'
+      ? currentQuestion.textHindi || currentQuestion.text
+      : currentQuestion.text);
   const displayedOptions =
-    language === 'Hindi' && currentQuestion.optionsHindi ? currentQuestion.optionsHindi : currentQuestion.options;
+    translatedQuestion?.options ??
+    (language === 'Hindi' && currentQuestion.optionsHindi && currentQuestion.optionsHindi.length === 4
+      ? currentQuestion.optionsHindi
+      : currentQuestion.options);
 
   return (
     <SafeAreaView style={styles.root} edges={['top', 'bottom']}>
@@ -331,6 +571,13 @@ export default function TestTakingScreen({ token, testId, initialLanguage, nav }
         />
       </View>
 
+      {!!sectionNotice && (
+        <Pressable style={styles.sectionNoticeBanner} onPress={() => setSectionNotice('')}>
+          <Text style={styles.sectionNoticeText}>{sectionNotice}</Text>
+          <Ionicons name="close" size={14} color={NAVY} />
+        </Pressable>
+      )}
+
       {session.test.subjectSections.length > 0 && (
         <ScrollView
           horizontal
@@ -340,48 +587,87 @@ export default function TestTakingScreen({ token, testId, initialLanguage, nav }
         >
           {session.test.subjectSections.map((section, i) => {
             const isActive = index + 1 >= section.startNo && index + 1 <= section.endNo;
+            const progress = sectionProgress.find((s) => s.name === section.name);
+            const isSubmitted = progress?.status === 'submitted';
+            const tabContent = (
+              <>
+                <Text
+                  style={[styles.subjectTabText, isActive && styles.subjectTabTextActive]}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
+                  {section.name}
+                </Text>
+                {divideByTime && isSubmitted && (
+                  <Ionicons name="checkmark-circle" size={12} color="#22C55E" style={styles.subjectTabIcon} />
+                )}
+                {divideByTime && !isActive && !isSubmitted && (
+                  <Ionicons name="lock-closed-outline" size={11} color={MUTED} style={styles.subjectTabIcon} />
+                )}
+              </>
+            );
+            if (divideByTime) {
+              return (
+                <View
+                  key={`${section.name}-${i}`}
+                  style={[styles.subjectTab, styles.subjectTabInner, isActive && styles.subjectTabActive]}
+                >
+                  {tabContent}
+                </View>
+              );
+            }
             return (
               <Pressable
                 key={`${section.name}-${i}`}
-                style={[styles.subjectTab, isActive && styles.subjectTabActive]}
+                style={[styles.subjectTab, styles.subjectTabInner, isActive && styles.subjectTabActive]}
                 onPress={() => goToIndex(section.startNo - 1)}
               >
-                <Text style={[styles.subjectTabText, isActive && styles.subjectTabTextActive]}>
-                  {section.name}
-                </Text>
+                {tabContent}
               </Pressable>
             );
           })}
         </ScrollView>
       )}
 
+      {divideByTime && activeSection && (
+        <Pressable
+          style={styles.sectionSubmitBtn}
+          onPress={() => handleSectionAdvance(activeSectionName!)}
+        >
+          <Text style={styles.sectionSubmitBtnText} numberOfLines={1} ellipsizeMode="tail">
+            Submit {activeSection.name}
+          </Text>
+        </Pressable>
+      )}
+
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.subjectRow}>
           <Text style={styles.subjectLabel}>{currentQuestion.subject.toUpperCase()}</Text>
           <View style={styles.subjectRowRight}>
-            {hasHindi && (
-              <View style={styles.langToggle}>
-                <Pressable
-                  style={[styles.langToggleBtn, language === 'English' && styles.langToggleBtnActive]}
-                  onPress={() => setLanguage('English')}
+            <View style={styles.langToggle}>
+              <Pressable
+                style={[styles.langToggleBtn, language === 'English' && styles.langToggleBtnActive]}
+                onPress={() => setLanguage('English')}
+              >
+                <Text
+                  style={[styles.langToggleText, language === 'English' && styles.langToggleTextActive]}
                 >
-                  <Text
-                    style={[styles.langToggleText, language === 'English' && styles.langToggleTextActive]}
-                  >
-                    EN
-                  </Text>
-                </Pressable>
-                <Pressable
-                  style={[styles.langToggleBtn, language === 'Hindi' && styles.langToggleBtnActive]}
-                  onPress={() => setLanguage('Hindi')}
+                  EN
+                </Text>
+              </Pressable>
+              <Pressable
+                style={[styles.langToggleBtn, language === 'Hindi' && styles.langToggleBtnActive]}
+                onPress={() => setLanguage('Hindi')}
+              >
+                <Text
+                  style={[styles.langToggleText, language === 'Hindi' && styles.langToggleTextActive]}
                 >
-                  <Text
-                    style={[styles.langToggleText, language === 'Hindi' && styles.langToggleTextActive]}
-                  >
-                    हिं
-                  </Text>
-                </Pressable>
-              </View>
+                  हिं
+                </Text>
+              </Pressable>
+            </View>
+            {isTranslating && (
+              <ActivityIndicator size="small" color={NAVY} style={{ marginLeft: 6, marginRight: 2 }} />
             )}
             <Text style={styles.questionCounter}>
               Q. {index + 1} of {totalQuestions}
@@ -438,10 +724,16 @@ export default function TestTakingScreen({ token, testId, initialLanguage, nav }
       <View style={styles.bottomBar}>
         <Pressable
           style={[styles.navBtn, styles.navBtnOutline]}
-          onPress={() => goToIndex(Math.max(0, index - 1))}
-          disabled={index === 0}
+          onPress={() => goToIndex(index - 1)}
+          disabled={divideByTime && activeSection ? index === activeSection.startNo - 1 : index === 0}
         >
-          <Text style={[styles.navBtnOutlineText, index === 0 && styles.navBtnTextDisabled]}>
+          <Text
+            style={[
+              styles.navBtnOutlineText,
+              (divideByTime && activeSection ? index === activeSection.startNo - 1 : index === 0) &&
+                styles.navBtnTextDisabled,
+            ]}
+          >
             Previous
           </Text>
         </Pressable>
@@ -458,15 +750,25 @@ export default function TestTakingScreen({ token, testId, initialLanguage, nav }
         <Pressable
           style={[styles.navBtn, styles.navBtnPrimary]}
           onPress={() => {
-            if (isLast) {
+            if (divideByTime && activeSection) {
+              if (!isLastOfActiveSection) goToIndex(index + 1);
+            } else if (isLast) {
               commitCurrentQuestionTime();
               setShowSubmitModal(true);
             } else {
               goToIndex(index + 1);
             }
           }}
+          disabled={divideByTime && activeSection ? isLastOfActiveSection : false}
         >
-          <Text style={styles.navBtnPrimaryText}>{isLast ? 'Submit Test' : 'Save & Next'}</Text>
+          <Text
+            style={[
+              styles.navBtnPrimaryText,
+              divideByTime && activeSection && isLastOfActiveSection && styles.navBtnTextDisabled,
+            ]}
+          >
+            {divideByTime && activeSection ? 'Save & Next' : isLast ? submitAllLabel : 'Save & Next'}
+          </Text>
         </Pressable>
       </View>
 
@@ -558,107 +860,75 @@ export default function TestTakingScreen({ token, testId, initialLanguage, nav }
                 </Pressable>
               </View>
 
-              {sectionsToRender.map((section, sIdx) => {
-                const sectionQs = session.questions.slice(section.startNo - 1, section.endNo);
-                const counts = countStatuses(sectionQs);
-                return (
-                  <View key={`${section.name}-${sIdx}`} style={styles.sectionBlock}>
-                    {!!section.name && <Text style={styles.sectionBlockTitle}>{section.name}</Text>}
-                    <View style={styles.sectionCountsRow}>
-                      <View style={styles.sectionCountItem}>
-                        <View style={[styles.sectionCountDot, { backgroundColor: STATUS_COLORS.attempted }]} />
-                        <Text style={styles.sectionCountText}>{counts.attempted}</Text>
+              {divideByTime ? (
+                <>
+                  {sectionsToRender
+                    .filter((section) => section.name === activeSectionName)
+                    .map((section, sIdx) => (
+                      <View key={`${section.name}-${sIdx}`} style={styles.sectionBlock}>
+                        <View style={styles.sectionBlockHeaderRow}>
+                          <Text style={styles.sectionBlockTitle}>{section.name} (Active)</Text>
+                        </View>
+                        {renderSectionCells(section)}
                       </View>
-                      <View style={styles.sectionCountItem}>
-                        <View style={[styles.sectionCountDot, styles.legendDotOutline]} />
-                        <Text style={styles.sectionCountText}>{counts.notVisited}</Text>
-                      </View>
-                      <View style={styles.sectionCountItem}>
-                        <View style={[styles.sectionCountDot, { backgroundColor: STATUS_COLORS.notAnswered }]} />
-                        <Text style={styles.sectionCountText}>{counts.notAnswered}</Text>
-                      </View>
-                      <View style={styles.sectionCountItem}>
-                        <View style={[styles.sectionCountDot, { backgroundColor: STATUS_COLORS.marked }]} />
-                        <Text style={styles.sectionCountText}>{counts.marked}</Text>
-                      </View>
+                    ))}
+                  {sectionProgress.filter((s) => s.name !== activeSectionName).length > 0 && (
+                    <View style={styles.otherSectionsBlock}>
+                      {sectionProgress
+                        .filter((s) => s.name !== activeSectionName)
+                        .map((s) => (
+                          <View key={s.name} style={styles.otherSectionRow}>
+                            <Ionicons
+                              name={s.status === 'submitted' ? 'checkmark-circle' : 'lock-closed-outline'}
+                              size={16}
+                              color={s.status === 'submitted' ? '#22C55E' : MUTED}
+                            />
+                            <Text style={styles.otherSectionText}>{s.name}</Text>
+                            <Text style={styles.otherSectionStatus}>
+                              {s.status === 'submitted' ? 'Submitted' : 'Locked'}
+                            </Text>
+                          </View>
+                        ))}
                     </View>
-
-                    {paletteTab === 'grid' ? (
-                      <View style={styles.paletteGrid}>
-                        {sectionQs.map((q, localIdx) => {
-                          const globalIdx = section.startNo - 1 + localIdx;
-                          const status = getStatus(q);
-                          const isCurrent = globalIdx === index;
-                          const bg = STATUS_COLORS[status];
-                          return (
-                            <Pressable
-                              key={q.id}
-                              style={[
-                                styles.paletteCell,
-                                { backgroundColor: bg, borderColor: status === 'notVisited' ? '#CBD5E1' : bg },
-                                isCurrent && styles.paletteCellCurrent,
-                              ]}
-                              onPress={() => {
-                                goToIndex(globalIdx);
-                                closePalette();
-                              }}
-                            >
-                              <Text style={[styles.paletteCellText, status === 'notVisited' && styles.paletteCellTextDark]}>
-                                {globalIdx + 1}
-                              </Text>
-                            </Pressable>
-                          );
-                        })}
-                      </View>
-                    ) : (
-                      <View style={styles.paletteList}>
-                        {sectionQs.map((q, localIdx) => {
-                          const globalIdx = section.startNo - 1 + localIdx;
-                          const status = getStatus(q);
-                          const isCurrent = globalIdx === index;
-                          const bg = STATUS_COLORS[status];
-                          return (
-                            <Pressable
-                              key={q.id}
-                              style={[styles.paletteListRow, isCurrent && styles.paletteListRowCurrent]}
-                              onPress={() => {
-                                goToIndex(globalIdx);
-                                closePalette();
-                              }}
-                            >
-                              <View
-                                style={[
-                                  styles.paletteListDot,
-                                  { backgroundColor: bg, borderColor: status === 'notVisited' ? '#CBD5E1' : bg },
-                                ]}
-                              >
-                                <Text style={[styles.paletteListDotText, status === 'notVisited' && styles.paletteCellTextDark]}>
-                                  {globalIdx + 1}
-                                </Text>
-                              </View>
-                              <Text style={styles.paletteListLabel} numberOfLines={1}>
-                                {q.subject}
-                              </Text>
-                              <Text style={styles.paletteListStatus}>{STATUS_LABELS[status]}</Text>
-                            </Pressable>
-                          );
-                        })}
-                      </View>
-                    )}
-                  </View>
-                );
-              })}
+                  )}
+                </>
+              ) : (
+                sectionsToRender.map((section, sIdx) => {
+                  const progress = sectionProgress.find((s) => s.name === section.name);
+                  const isSubmitted = progress?.status === 'submitted';
+                  return (
+                    <View key={`${section.name}-${sIdx}`} style={styles.sectionBlock}>
+                      {!!section.name && (
+                        <View style={styles.sectionBlockHeaderRow}>
+                          <Text style={styles.sectionBlockTitle}>{section.name}</Text>
+                          {hasRealSections &&
+                            (isSubmitted ? (
+                              <Text style={styles.sectionSubmittedTag}>Submitted ✓</Text>
+                            ) : (
+                              <Pressable onPress={() => submitSectionManually(section.name)}>
+                                <Text style={styles.sectionSubmitLink}>Submit Section</Text>
+                              </Pressable>
+                            ))}
+                        </View>
+                      )}
+                      {renderSectionCells(section)}
+                    </View>
+                  );
+                })
+              )}
             </ScrollView>
 
-            <Pressable
-              style={styles.submitTestBtnSheet}
-              onPress={() => {
-                closePalette();
-                setShowSubmitModal(true);
-              }}
-            >
-              <Text style={styles.submitTestBtnSheetText}>Submit Test</Text>
-            </Pressable>
+            {showSubmitAll && (
+              <Pressable
+                style={styles.submitTestBtnSheet}
+                onPress={() => {
+                  closePalette();
+                  setShowSubmitModal(true);
+                }}
+              >
+                <Text style={styles.submitTestBtnSheetText}>{submitAllLabel}</Text>
+              </Pressable>
+            )}
             </SafeAreaView>
           </Animated.View>
         </View>
@@ -674,7 +944,7 @@ export default function TestTakingScreen({ token, testId, initialLanguage, nav }
               <View style={styles.warnIconWrap}>
                 <Ionicons name="alert-circle-outline" size={30} color={NAVY} />
               </View>
-              <Text style={styles.confirmTitle}>Submit Test?</Text>
+              <Text style={styles.confirmTitle}>{hasRealSections ? 'Submit All Sections?' : 'Submit Test?'}</Text>
               <Text style={styles.confirmSubtitle}>Are you sure you want to end and submit the test?</Text>
 
               <View style={styles.confirmStatsBox}>
@@ -703,6 +973,9 @@ export default function TestTakingScreen({ token, testId, initialLanguage, nav }
               <View style={styles.confirmWarnBox}>
                 <Text style={styles.confirmWarnText}>
                   Unanswered questions will remain unattempted and will not be scored.
+                  {hasRealSections
+                    ? ' This finishes the entire test immediately, including any sections not yet reached.'
+                    : ''}
                 </Text>
               </View>
 
@@ -867,6 +1140,33 @@ const styles = StyleSheet.create({
     height: '100%',
     backgroundColor: NAVY,
   },
+  sectionNoticeBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FDF1DC',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  sectionNoticeText: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#8A6416',
+  },
+  sectionSubmitBtn: {
+    backgroundColor: '#22A559',
+    marginHorizontal: 14,
+    marginTop: 10,
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  sectionSubmitBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+    fontSize: 13,
+  },
   subjectTabsScroll: {
     maxHeight: 46,
     backgroundColor: '#FFFFFF',
@@ -875,23 +1175,34 @@ const styles = StyleSheet.create({
   },
   subjectTabsRow: {
     flexDirection: 'row',
-    gap: 8,
-    paddingHorizontal: 14,
+    gap: IS_SMALL_SCREEN ? 6 : 8,
+    paddingHorizontal: IS_SMALL_SCREEN ? 10 : 14,
     paddingVertical: 8,
   },
   subjectTab: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
+    paddingHorizontal: IS_SMALL_SCREEN ? 10 : 14,
+    paddingVertical: IS_SMALL_SCREEN ? 6 : 7,
     borderRadius: 16,
     backgroundColor: '#F5F4EF',
+    maxWidth: IS_SMALL_SCREEN ? 108 : 150,
+  },
+  subjectTabInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexShrink: 1,
+  },
+  subjectTabIcon: {
+    marginLeft: 4,
+    flexShrink: 0,
   },
   subjectTabActive: {
     backgroundColor: NAVY,
   },
   subjectTabText: {
-    fontSize: 12,
+    fontSize: IS_SMALL_SCREEN ? 11 : 12,
     fontWeight: '700',
     color: MUTED,
+    flexShrink: 1,
   },
   subjectTabTextActive: {
     color: '#FFFFFF',
@@ -944,7 +1255,7 @@ const styles = StyleSheet.create({
   },
   questionText: {
     fontSize: 17,
-    fontWeight: '700',
+    fontWeight: '500',
     color: '#1E2937',
     marginTop: 14,
     lineHeight: 24,
@@ -1198,11 +1509,50 @@ const styles = StyleSheet.create({
   sectionBlock: {
     marginTop: 18,
   },
+  sectionBlockHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
   sectionBlockTitle: {
     fontSize: 14,
     fontWeight: '800',
     color: '#1D4ED8',
-    marginBottom: 8,
+  },
+  sectionSubmitLink: {
+    fontSize: 11.5,
+    fontWeight: '800',
+    color: NAVY,
+  },
+  sectionSubmittedTag: {
+    fontSize: 11.5,
+    fontWeight: '800',
+    color: '#22C55E',
+  },
+  otherSectionsBlock: {
+    marginTop: 18,
+    gap: 8,
+  },
+  otherSectionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#F8F7F3',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  otherSectionText: {
+    flex: 1,
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: '#334155',
+  },
+  otherSectionStatus: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748B',
   },
   sectionCountsRow: {
     flexDirection: 'row',

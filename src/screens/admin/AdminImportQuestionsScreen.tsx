@@ -113,6 +113,28 @@ export default function AdminImportQuestionsScreen({ token, testId, nav }: Props
           </View>
         </View>
 
+        <View style={styles.columnsBox}>
+          <Text style={styles.columnsTitle}>OPTIONAL HINDI COLUMNS (for the language toggle):</Text>
+          <View style={styles.columnsRow}>
+            {[
+              'Question Hindi',
+              'Option A Hindi',
+              'Option B Hindi',
+              'Option C Hindi',
+              'Option D Hindi',
+              'Explanation Hindi',
+            ].map((col) => (
+              <View key={col} style={[styles.columnTag, styles.columnTagOptional]}>
+                <Text style={styles.columnTagText}>{col}</Text>
+              </View>
+            ))}
+          </View>
+          <Text style={styles.hindiColumnsHint}>
+            Fill the question + all four Hindi options for a row to enable the EN/हिं toggle for
+            that question on the student app. Leave them blank for English-only questions.
+          </Text>
+        </View>
+
         <Text style={styles.helperText}>
           Step 1: pick a file below — it will be checked automatically. Step 2: review the
           results and tap "Import" to actually save the questions into this test.
@@ -130,7 +152,7 @@ export default function AdminImportQuestionsScreen({ token, testId, nav }: Props
               <Text style={styles.dropzoneBtnText}>
                 {fileType === 'excel' ? 'Choose Excel File' : 'Choose CSV File'}
               </Text>
-              <Text style={styles.dropzoneHint}>Max size 10MB</Text>
+              <Text style={styles.dropzoneHint}>Excel or CSV file</Text>
               {!!file && <Text style={styles.fileName}>{file.name}</Text>}
             </>
           )}
@@ -283,7 +305,9 @@ const styles = StyleSheet.create({
   columnsTitle: { fontSize: 10.5, fontWeight: '800', color: MUTED, marginBottom: 10 },
   columnsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   columnTag: { backgroundColor: '#F1F0EA', borderRadius: 8, paddingHorizontal: 9, paddingVertical: 5 },
+  columnTagOptional: { backgroundColor: '#EEF1F7' },
   columnTagText: { fontSize: 10.5, fontWeight: '700', color: NAVY },
+  hindiColumnsHint: { fontSize: 11, color: MUTED, lineHeight: 16, marginTop: 10 },
   helperText: { fontSize: 12, color: MUTED, marginBottom: 12, lineHeight: 17 },
   dropzone: {
     borderWidth: 1.5,

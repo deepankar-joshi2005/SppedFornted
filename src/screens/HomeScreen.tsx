@@ -28,6 +28,7 @@ import {
 } from '../services/dashboard.service';
 import { AuthUser } from '../services/auth.service';
 import { getEbooks } from '../services/ebook.service';
+import { getUpcomingMocks, UpcomingMockItem } from '../services/upcomingMock.service';
 import { useLanguage } from '../context/LanguageContext';
 import { CARD_SHADOW, GOLD, GOLD_TINT, MUTED, NAVY, SOFT_SHADOW } from '../theme/colors';
 
@@ -79,6 +80,7 @@ export default function HomeScreen({ user, token, nav }: Props) {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [headerHeight, setHeaderHeight] = useState(0);
 
   // ── Panel state ──────────────────────────────────────────────────────────
   // panelAnim: 0 = closed, 1 = open
@@ -100,6 +102,11 @@ export default function HomeScreen({ user, token, nav }: Props) {
   const storyFlatListRef = useRef<FlatList>(null);
   const [activeStoryIndex, setActiveStoryIndex] = useState(0);
 
+  // Upcoming mocks
+  const [upcomingMocks, setUpcomingMocks] = useState<UpcomingMockItem[]>([]);
+  const upcomingFlatListRef = useRef<FlatList>(null);
+  const [activeUpcomingIndex, setActiveUpcomingIndex] = useState(0);
+
   // Keep ref in sync with animated value at all times
   useEffect(() => {
     const id = panelAnim.addListener(({ value }) => {
@@ -113,6 +120,8 @@ export default function HomeScreen({ user, token, nav }: Props) {
     try {
       const result = await getDashboard(token);
       setData(result);
+      // Fetch upcoming mocks in parallel — best effort
+      getUpcomingMocks(token).then(setUpcomingMocks).catch(() => {});
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load dashboard.');
     } finally {
@@ -311,6 +320,20 @@ export default function HomeScreen({ user, token, nav }: Props) {
     return () => clearInterval(timer);
   }, [storiesList]);
 
+  // Auto-scroll Upcoming Mocks
+  useEffect(() => {
+    const count = upcomingMocks.length;
+    if (count <= 1) return;
+    const timer = setInterval(() => {
+      setActiveUpcomingIndex((prev) => {
+        const nextIndex = (prev + 1) % count;
+        upcomingFlatListRef.current?.scrollToIndex({ index: nextIndex, animated: true });
+        return nextIndex;
+      });
+    }, 3500);
+    return () => clearInterval(timer);
+  }, [upcomingMocks]);
+
   const headerMaxHeight = panelAnim;
 
   // translateY: panel starts at -260 (hidden above), moves to 0 (visible)
@@ -325,7 +348,10 @@ export default function HomeScreen({ user, token, nav }: Props) {
       <View style={{ flex: 1 }}>
 
       {/* ── Fixed Top Header ── */}
-      <View style={styles.fixedTopHeader}>
+      <View
+        style={styles.fixedTopHeader}
+        onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}
+      >
         {/* Welcome Row */}
         <View style={styles.headerRow}>
           <View>
@@ -337,21 +363,17 @@ export default function HomeScreen({ user, token, nav }: Props) {
           <View style={styles.headerActions}>
             <NotificationBell token={token} onPress={() => nav.push({ name: 'notifications' })} />
             <Pressable style={styles.avatar} onPress={() => nav.resetToTab('profile')}>
-              <Text style={styles.avatarText}>{getInitials(user.name)}</Text>
+              {user.profileImage ? (
+                <Image
+                  source={{ uri: resolveAssetUrl(user.profileImage) }}
+                  style={styles.avatarImage}
+                />
+              ) : (
+                <Text style={styles.avatarText}>{getInitials(user.name)}</Text>
+              )}
             </Pressable>
           </View>
         </View>
-
-        {/* Search Bar */}
-        <Pressable
-          style={styles.searchBar}
-          onPress={() => nav.resetToTab('tests')}
-        >
-          <Ionicons name="search-outline" size={18} color={MUTED} />
-          <Text style={styles.searchPlaceholder}>
-            {t('search_placeholder', 'Search tests, exams or test series...')}
-          </Text>
-        </Pressable>
 
         {/* Handle Bar Pill — tap to toggle admin panel */}
         <Pressable style={styles.handleBarWrap} onPress={toggleHeader}>
@@ -365,6 +387,7 @@ export default function HomeScreen({ user, token, nav }: Props) {
           style={[
             styles.collapsibleHeaderBox,
             {
+              top: headerHeight,
               transform: [{ translateY: panelTranslateY }],
             },
           ]}
@@ -655,77 +678,164 @@ export default function HomeScreen({ user, token, nav }: Props) {
             </View>
 
             <View style={styles.trendingGridCard}>
-              {/* Render categories in rows of 4 */}
-              {Array.from({
-                length: Math.ceil(Math.min(data!.categories.length, 8) / 4),
-              }).map((_, rowIdx) => {
-                const rowItems = data!.categories.slice(rowIdx * 4, rowIdx * 4 + 4);
-                // On last row, if less than 4 items, add "Show All" button
-                const isLastRow = rowIdx === Math.ceil(Math.min(data!.categories.length, 8) / 4) - 1;
-                const showShowAll = isLastRow && rowItems.length < 4;
-                return (
-                  <View
-                    key={rowIdx}
-                    style={[styles.trendingGridRow, rowIdx > 0 && { marginTop: 16 }]}
-                  >
-                    {rowItems.map((cat, idx) => {
-                      const globalIdx = rowIdx * 4 + idx;
-                      const iconName = CATEGORY_ICONS[globalIdx % CATEGORY_ICONS.length];
-                      const iconColor = CATEGORY_COLORS[globalIdx % CATEGORY_COLORS.length];
-                      return (
-                        <Pressable
-                          key={cat.name}
-                          style={styles.trendingItem}
-                          onPress={() => nav.push({ name: 'testList', category: cat.name })}
-                        >
-                          {cat.iconImage ? (
-                            <View style={styles.trendingIconCircle}>
-                              <Image
-                                source={{ uri: resolveAssetUrl(cat.iconImage) }}
-                                style={{ width: 26, height: 26, borderRadius: 13 }}
-                                resizeMode="cover"
-                              />
-                            </View>
-                          ) : (
-                            <View style={styles.trendingIconCircle}>
-                              <Ionicons name={iconName as any} size={22} color={iconColor} />
-                            </View>
-                          )}
-                          <Text style={styles.trendingLabel} numberOfLines={2}>
-                            {cat.name}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                    {showShowAll && (
-                      <Pressable
-                        style={styles.trendingItem}
-                        onPress={() => nav.push({ name: 'categories' })}
-                      >
-                        <View style={[styles.trendingIconCircle, { backgroundColor: '#F0F2F5' }]}>
-                          <Ionicons name="chevron-forward" size={20} color={NAVY} />
-                        </View>
-                        <Text style={styles.trendingShowAllLabel}>Show All</Text>
-                      </Pressable>
-                    )}
-                  </View>
-                );
-              })}
-
-              {/* Show All button on its own row if categories fill all 8 slots */}
-              {data!.categories.length >= 8 && (
-                <View style={[styles.trendingGridRow, { marginTop: 16 }]}>
-                  <Pressable
-                    style={styles.trendingItem}
-                    onPress={() => nav.resetToTab('tests')}
-                  >
-                    <View style={[styles.trendingIconCircle, { backgroundColor: '#F0F2F5' }]}>
-                      <Ionicons name="chevron-forward" size={20} color={NAVY} />
+              {/* Show up to 7 categories, then always a "Show All" tile as the 8th cell */}
+              {(() => {
+                const displayCategories = data!.categories.slice(0, 7);
+                type Cell =
+                  | { type: 'category'; cat: DashboardCategory }
+                  | { type: 'showAll' };
+                const cells: Cell[] = [
+                  ...displayCategories.map((cat) => ({ type: 'category' as const, cat })),
+                  { type: 'showAll' as const },
+                ];
+                const rowCount = Math.ceil(cells.length / 4);
+                return Array.from({ length: rowCount }).map((_, rowIdx) => {
+                  const rowCells = cells.slice(rowIdx * 4, rowIdx * 4 + 4);
+                  return (
+                    <View
+                      key={rowIdx}
+                      style={[styles.trendingGridRow, rowIdx > 0 && { marginTop: 16 }]}
+                    >
+                      {rowCells.map((cell, idx) => {
+                        if (cell.type === 'showAll') {
+                          return (
+                            <Pressable
+                              key="show-all"
+                              style={styles.trendingItem}
+                              onPress={() => nav.push({ name: 'categories' })}
+                            >
+                              <View
+                                style={[styles.trendingIconCircle, { backgroundColor: '#F0F2F5' }]}
+                              >
+                                <Ionicons name="chevron-forward" size={20} color={NAVY} />
+                              </View>
+                              <Text style={styles.trendingShowAllLabel}>Show All</Text>
+                            </Pressable>
+                          );
+                        }
+                        const globalIdx = rowIdx * 4 + idx;
+                        const cat = cell.cat;
+                        const iconName = CATEGORY_ICONS[globalIdx % CATEGORY_ICONS.length];
+                        const iconColor = CATEGORY_COLORS[globalIdx % CATEGORY_COLORS.length];
+                        return (
+                          <Pressable
+                            key={cat.name}
+                            style={styles.trendingItem}
+                            onPress={() => nav.push({ name: 'testList', category: cat.name })}
+                          >
+                            {cat.iconImage ? (
+                              <View style={styles.trendingIconCircle}>
+                                <Image
+                                  source={{ uri: resolveAssetUrl(cat.iconImage) }}
+                                  style={{ width: 26, height: 26, borderRadius: 13 }}
+                                  resizeMode="cover"
+                                />
+                              </View>
+                            ) : (
+                              <View style={styles.trendingIconCircle}>
+                                <Ionicons name={iconName as any} size={22} color={iconColor} />
+                              </View>
+                            )}
+                            <Text style={styles.trendingLabel} numberOfLines={2}>
+                              {cat.name}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
                     </View>
-                    <Text style={styles.trendingShowAllLabel}>Show All</Text>
-                  </Pressable>
+                  );
+                });
+              })()}
+            </View>
+          </>
+        )}
+
+        {/* Upcoming Mocks Section */}
+        {upcomingMocks.length > 0 && (
+          <>
+            <View style={styles.sectionHeaderRow}>
+              <View style={styles.sectionTitleWithAccent}>
+                <View style={styles.blueAccentBar} />
+                <View style={[styles.freeBadgePill, { backgroundColor: '#EEF2FF' }]}>
+                  <Text style={[styles.freeBadgeText, { color: '#4F46E5' }]}>SOON</Text>
                 </View>
-              )}
+                <Text style={styles.sectionTitleText}>Upcoming Mocks</Text>
+              </View>
+            </View>
+
+            <View style={styles.liveMocksContainer}>
+              <FlatList
+                ref={upcomingFlatListRef}
+                data={upcomingMocks}
+                horizontal
+                pagingEnabled
+                showsHorizontalScrollIndicator={false}
+                keyExtractor={(item) => item.id}
+                onMomentumScrollEnd={(e) => {
+                  const index = Math.round(e.nativeEvent.contentOffset.x / (SCREEN_WIDTH - 36));
+                  setActiveUpcomingIndex(index);
+                }}
+                renderItem={({ item }) => {
+                  const startDate = new Date(item.startDate);
+                  const dateStr = startDate.toLocaleDateString('en-IN', {
+                    day: '2-digit', month: 'short', year: 'numeric',
+                  });
+                  const timeStr = startDate.toLocaleTimeString('en-IN', {
+                    hour: '2-digit', minute: '2-digit',
+                  });
+                  return (
+                    <View style={styles.liveMockCard}>
+                      <View style={styles.liveMockHeaderRow}>
+                        <Text style={styles.liveMockTitle}>{item.testTitle}</Text>
+                        <View style={[styles.liveBadge, { backgroundColor: '#4F46E5' }]}>
+                          <Text style={styles.liveBadgeText}>SOON</Text>
+                        </View>
+                      </View>
+
+                      <View style={[styles.liveMockSubPill, { backgroundColor: '#EEF2FF' }]}>
+                        <Text style={[styles.liveMockSubPillText, { color: '#4F46E5' }]}>
+                          • {item.seriesTitle || item.category}
+                        </Text>
+                      </View>
+
+                      <View style={styles.liveMockDetailsRow}>
+                        <View style={styles.mockStatCol}>
+                          <Text style={styles.mockStatValue}>{item.totalQuestions}</Text>
+                          <Text style={styles.mockStatLabel}>Ques</Text>
+                        </View>
+                        <View style={styles.mockDivider} />
+                        <View style={styles.mockStatCol}>
+                          <Text style={styles.mockStatValue}>{item.durationMinutes}</Text>
+                          <Text style={styles.mockStatLabel}>mins</Text>
+                        </View>
+                        <View style={styles.mockDivider} />
+                        <View style={styles.mockStatCol}>
+                          <Text style={styles.mockStatValue}>{item.totalMarks}</Text>
+                          <Text style={styles.mockStatLabel}>Marks</Text>
+                        </View>
+
+                        <View style={styles.upcomingDateBox}>
+                          <Ionicons name="calendar-outline" size={13} color="#4F46E5" />
+                          <Text style={styles.upcomingDateText}>{dateStr}</Text>
+                          <Text style={styles.upcomingTimeText}>{timeStr}</Text>
+                        </View>
+                      </View>
+                    </View>
+                  );
+                }}
+              />
+              {/* Upcoming Indicators */}
+              <View style={styles.indicatorRow}>
+                {upcomingMocks.map((_, i) => (
+                  <View
+                    key={i}
+                    style={[
+                      styles.indicatorDot,
+                      activeUpcomingIndex === i && styles.indicatorDotActive,
+                    ]}
+                  />
+                ))}
+              </View>
             </View>
           </>
         )}
@@ -939,6 +1049,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#FFFFFF',
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
   },
   avatarText: {
     fontSize: 13,
@@ -995,7 +1110,6 @@ const styles = StyleSheet.create({
   },
   collapsibleHeaderBox: {
     position: 'absolute',
-    top: 145,
     left: 0,
     right: 0,
     height: 220,
@@ -1331,6 +1445,21 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 12.5,
     fontWeight: '800',
+  },
+  upcomingDateBox: {
+    alignItems: 'flex-end',
+    gap: 2,
+    marginLeft: 'auto',
+  },
+  upcomingDateText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#4F46E5',
+  },
+  upcomingTimeText: {
+    fontSize: 10.5,
+    color: MUTED,
+    fontWeight: '600',
   },
   trendingGridCard: {
     backgroundColor: '#FFFFFF',

@@ -5,6 +5,7 @@ export interface SubjectSection {
   name: string;
   startNo: number;
   endNo: number;
+  durationMinutes?: number;
 }
 
 export type TestAccessLevel = 'all' | 'coachingOnly';
@@ -27,7 +28,10 @@ export interface AdminTestDetail {
   endDate: string | null;
   status: 'draft' | 'published';
   subjectSections: SubjectSection[];
+  divideSectionsByTime: boolean;
+  sectionOrder: string[];
   accessLevel: TestAccessLevel;
+  isFreeDemo?: boolean;
 }
 
 export interface CreateTestPayload {
@@ -36,6 +40,7 @@ export interface CreateTestPayload {
   subject?: string;
   description?: string;
   difficulty?: string;
+  isFreeDemo?: boolean;
 }
 
 export interface UpdateTestConfigPayload {
@@ -53,6 +58,7 @@ export interface UpdateTestConfigPayload {
   startDate?: string | null;
   endDate?: string | null;
   accessLevel?: TestAccessLevel;
+  isFreeDemo?: boolean;
 }
 
 export interface AdminTestListItem {
@@ -185,7 +191,12 @@ export const deleteTest = async (token: string, testId: string): Promise<void> =
 export const setSubjectSections = async (
   token: string,
   testId: string,
-  payload: { enabled: boolean; sections: SubjectSection[] }
+  payload: {
+    enabled: boolean;
+    sections: SubjectSection[];
+    divideSectionsByTime?: boolean;
+    sectionOrder?: string[];
+  }
 ): Promise<AdminTestDetail> => {
   try {
     const response = await api.put<AdminTestDetail>(

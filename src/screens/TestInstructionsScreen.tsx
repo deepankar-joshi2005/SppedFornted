@@ -43,11 +43,15 @@ const getInstructionsContent = (data: TestInstructions, lang: Language) => ({
       lang
     ),
     bi(
-      data.subjectSections && data.subjectSections.length > 1
-        ? `Each section has a separate timer. Once a section's time ends, you cannot revisit it.`
+      data.divideSectionsByTime
+        ? `Each section has a separate timer. Once a section's time ends, you automatically move to the next section and cannot revisit it.`
+        : data.subjectSections && data.subjectSections.length > 1
+        ? `This test has multiple sections, but one timer covers the whole test — you can move between sections freely.`
         : `The timer (top right) is server-controlled; you cannot pause it.`,
-      data.subjectSections && data.subjectSections.length > 1
-        ? `प्रत्येक सेक्शन के लिए अलग-अलग टाइमर है। सेक्शन का समय समाप्त होने पर वापस नहीं जा सकते।`
+      data.divideSectionsByTime
+        ? `प्रत्येक सेक्शन के लिए अलग-अलग टाइमर है। सेक्शन का समय समाप्त होने पर आप अपने आप अगले सेक्शन में चले जाएंगे और वापस नहीं जा सकते।`
+        : data.subjectSections && data.subjectSections.length > 1
+        ? `इस परीक्षा में कई सेक्शन हैं, लेकिन पूरी परीक्षा के लिए एक ही टाइमर है — आप सेक्शन के बीच स्वतंत्र रूप से आ-जा सकते हैं।`
         : `टाइमर (ऊपर दाईं ओर) सर्वर द्वारा नियंत्रित है; इसे रोका नहीं जा सकता।`,
       lang
     ),
@@ -200,7 +204,7 @@ export default function TestInstructionsScreen({ token, testId, nav }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [step, setStep] = useState<Step>('language');
-  const [language, setLanguage] = useState<Language>('Hindi');
+  const [language, setLanguage] = useState<Language>('English');
   const [agreed, setAgreed] = useState(false);
   const [starting, setStarting] = useState(false);
   const [buying, setBuying] = useState(false);
@@ -220,9 +224,6 @@ export default function TestInstructionsScreen({ token, testId, nav }: Props) {
       try {
         const result = await getTestInstructions(token, testId);
         setData(result);
-        // Set default language based on what admin configured
-        if (result.language === 'English') setLanguage('English');
-        else setLanguage('Hindi');
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load instructions.');
       } finally {
@@ -595,11 +596,8 @@ function InstructionsStep({
             </Text>
             <View style={styles.table}>
               <View style={[styles.tableRow, styles.tableHeader]}>
-                <Text style={[styles.tableCell, styles.tableHeaderText, { flex: 0.7 }]}>
+                <Text style={[styles.tableCell, styles.tableHeaderText, { flex: 1.6 }]}>
                   {bi('Section', 'सेक्शन')}
-                </Text>
-                <Text style={[styles.tableCell, styles.tableHeaderText, { flex: 2 }]}>
-                  {bi('Subject', 'विषय')}
                 </Text>
                 <Text style={[styles.tableCell, styles.tableHeaderText, { flex: 0.8 }]}>
                   {bi('Qs', 'प्रश्न')}
@@ -607,6 +605,11 @@ function InstructionsStep({
                 <Text style={[styles.tableCell, styles.tableHeaderText, { flex: 0.8 }]}>
                   {bi('Marks', 'अंक')}
                 </Text>
+                {data.divideSectionsByTime && (
+                  <Text style={[styles.tableCell, styles.tableHeaderText, { flex: 0.8 }]}>
+                    {bi('Time', 'समय')}
+                  </Text>
+                )}
               </View>
               {data.subjectSections.map((sec, idx) => {
                 const count = sec.endNo - sec.startNo + 1;
@@ -617,11 +620,8 @@ function InstructionsStep({
                     key={idx}
                     style={[styles.tableRow, idx % 2 === 0 && styles.tableRowEven]}
                   >
-                    <Text style={[styles.tableCell, styles.tableCellText, { flex: 0.7 }]}>
+                    <Text style={[styles.tableCell, styles.tableCellText, { flex: 1.6 }]}>
                       {sec.name}
-                    </Text>
-                    <Text style={[styles.tableCell, styles.tableCellText, { flex: 2 }]}>
-                      {sec.subject}
                     </Text>
                     <Text style={[styles.tableCell, styles.tableCellText, { flex: 0.8 }]}>
                       {count}
@@ -629,20 +629,29 @@ function InstructionsStep({
                     <Text style={[styles.tableCell, styles.tableCellText, { flex: 0.8 }]}>
                       {sectionMarks}
                     </Text>
+                    {data.divideSectionsByTime && (
+                      <Text style={[styles.tableCell, styles.tableCellText, { flex: 0.8 }]}>
+                        {bi(`${sec.durationMinutes} min`, `${sec.durationMinutes} मिनट`)}
+                      </Text>
+                    )}
                   </View>
                 );
               })}
               <View style={[styles.tableRow, styles.tableFooterRow]}>
-                <Text style={[styles.tableCell, styles.tableFooterText, { flex: 0.7 }]}>
+                <Text style={[styles.tableCell, styles.tableFooterText, { flex: 1.6 }]}>
                   {bi('Total', 'कुल')}
                 </Text>
-                <Text style={[styles.tableCell, { flex: 2 }]} />
                 <Text style={[styles.tableCell, styles.tableFooterText, { flex: 0.8 }]}>
                   {data.totalQuestions}
                 </Text>
                 <Text style={[styles.tableCell, styles.tableFooterText, { flex: 0.8 }]}>
                   {data.totalMarks}
                 </Text>
+                {data.divideSectionsByTime && (
+                  <Text style={[styles.tableCell, styles.tableFooterText, { flex: 0.8 }]}>
+                    {data.durationMinutes} min
+                  </Text>
+                )}
               </View>
             </View>
           </View>

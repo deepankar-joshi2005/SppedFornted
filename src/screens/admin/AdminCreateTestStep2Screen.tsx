@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import AdminHeader from '../../components/admin/AdminHeader';
 import StepProgressHeader from '../../components/admin/StepProgressHeader';
 import ToggleRow from '../../components/admin/ToggleRow';
@@ -13,6 +14,7 @@ import {
   TestAccessLevel,
   updateTestConfig,
 } from '../../services/admin/tests.service';
+import { getSeriesDetail } from '../../services/admin/series.service';
 import { MUTED, NAVY } from '../../theme/colors';
 
 type Props = {
@@ -33,6 +35,8 @@ export default function AdminCreateTestStep2Screen({ token, testId, nav }: Props
   const [attemptsMode, setAttemptsMode] = useState<AttemptsMode>('1');
   const [customAttempts, setCustomAttempts] = useState('');
   const [accessLevel, setAccessLevel] = useState<TestAccessLevel>('coachingOnly');
+  const [parentSeriesAccessType, setParentSeriesAccessType] = useState<'free' | 'paid'>('paid');
+  const [isFreeDemo, setIsFreeDemo] = useState(false);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [loading, setLoading] = useState(true);
@@ -49,6 +53,7 @@ export default function AdminCreateTestStep2Screen({ token, testId, nav }: Props
         setNegativeMarkingEnabled(test.negativeMarkingEnabled);
         setNegativeMarks(String(test.negativeMarks ?? 0.25));
         setAccessLevel(test.accessLevel ?? 'coachingOnly');
+        setIsFreeDemo(!!test.isFreeDemo);
         setStartDate(test.startDate ? test.startDate.slice(0, 10) : '');
         setEndDate(test.endDate ? test.endDate.slice(0, 10) : '');
         if (test.maxAttempts === 0) setAttemptsMode('unlimited');
@@ -56,6 +61,11 @@ export default function AdminCreateTestStep2Screen({ token, testId, nav }: Props
         else {
           setAttemptsMode('custom');
           setCustomAttempts(String(test.maxAttempts));
+        }
+
+        if (test.series) {
+          const series = await getSeriesDetail(token, test.series);
+          setParentSeriesAccessType(series.accessType ?? 'paid');
         }
       } catch (err) {
         Alert.alert('Failed to load test', err instanceof Error ? err.message : '');
@@ -80,6 +90,7 @@ export default function AdminCreateTestStep2Screen({ token, testId, nav }: Props
         negativeMarks: negativeMarks ? Number(negativeMarks) : 0,
         maxAttempts,
         accessLevel,
+        isFreeDemo: parentSeriesAccessType === 'free' ? true : isFreeDemo,
         startDate: startDate || null,
         endDate: endDate || null,
       });
@@ -190,6 +201,42 @@ export default function AdminCreateTestStep2Screen({ token, testId, nav }: Props
             />
           )}
 
+          <Text style={[styles.label, { marginTop: 10 }]}>Test Payment Status (Free vs Paid)</Text>
+          {parentSeriesAccessType === 'free' ? (
+            <View style={styles.freeSeriesBox}>
+              <Ionicons name="checkmark-circle" size={18} color="#2E9E5B" />
+              <Text style={styles.freeSeriesText}>
+                Parent Test Series / Category is FREE. All tests in this series are automatically 100% Free for students.
+              </Text>
+            </View>
+          ) : (
+            <>
+              <View style={styles.pillRow}>
+                <Pressable
+                  style={[styles.pill, !isFreeDemo && styles.pillActive]}
+                  onPress={() => setIsFreeDemo(false)}
+                >
+                  <Text style={[styles.pillText, !isFreeDemo && styles.pillTextActive]}>
+                    Paid Test
+                  </Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.pill, isFreeDemo && styles.pillActive]}
+                  onPress={() => setIsFreeDemo(true)}
+                >
+                  <Text style={[styles.pillText, isFreeDemo && styles.pillTextActive]}>
+                    Free (Demo Test)
+                  </Text>
+                </Pressable>
+              </View>
+              <Text style={styles.helperText}>
+                {isFreeDemo
+                  ? 'Any student can attempt this test for FREE as a Demo without buying the test series.'
+                  : 'Students must purchase the Test Series to unlock this test.'}
+              </Text>
+            </>
+          )}
+
           <Text style={[styles.label, { marginTop: 10 }]}>Who Can Access This Test</Text>
           <View style={styles.pillRow}>
             {(['coachingOnly', 'all'] as TestAccessLevel[]).map((level) => (
@@ -257,4 +304,22 @@ const styles = StyleSheet.create({
   pillText: { fontSize: 12.5, fontWeight: '600', color: MUTED },
   pillTextActive: { color: '#FFFFFF' },
   helperText: { fontSize: 11.5, color: MUTED, marginTop: -6, marginBottom: 14, lineHeight: 16 },
+  freeSeriesBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#E9F8EF',
+    borderColor: '#2E9E5B',
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 14,
+  },
+  freeSeriesText: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#2E5B41',
+    lineHeight: 17,
+  },
 });

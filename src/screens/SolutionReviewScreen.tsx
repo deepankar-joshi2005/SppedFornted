@@ -14,6 +14,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import NotificationBell from '../components/NotificationBell';
 import { Nav } from '../navigation/types';
 import { getSolutions, SolutionQuestion, SolutionsResponse } from '../services/attempts.service';
+import {
+  getQuestionForLanguageAsync,
+  getQuestionForLanguageSync,
+  preloadQuestionTranslations,
+  TranslatedQuestionResult,
+} from '../services/translate.service';
 import { ERROR, MUTED, NAVY } from '../theme/colors';
 
 type Props = {
@@ -45,6 +51,8 @@ export default function SolutionReviewScreen({ token, attemptId, nav }: Props) {
       try {
         const result = await getSolutions(token, attemptId);
         setData(result);
+        preloadQuestionTranslations(result.questions, 'Hindi');
+        preloadQuestionTranslations(result.questions, 'English');
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load solutions.');
       } finally {
@@ -231,12 +239,34 @@ function QuestionBlock({
   question: SolutionQuestion;
   language: 'Hindi' | 'English';
 }) {
+  const [translated, setTranslated] = useState<TranslatedQuestionResult | null>(null);
+
+  useEffect(() => {
+    const syncRes = getQuestionForLanguageSync(question, language);
+    if (syncRes) {
+      setTranslated(syncRes);
+    } else {
+      let isCancelled = false;
+      getQuestionForLanguageAsync(question, language).then((res) => {
+        if (!isCancelled) setTranslated(res);
+      });
+      return () => {
+        isCancelled = true;
+      };
+    }
+  }, [question, language]);
+
   const displayedText =
-    language === 'Hindi' && question.textHindi ? question.textHindi : question.text;
+    translated?.text ??
+    (language === 'Hindi' && question.textHindi ? question.textHindi : question.text);
   const displayedOptions =
-    language === 'Hindi' && question.optionsHindi ? question.optionsHindi : question.options;
+    translated?.options ??
+    (language === 'Hindi' && question.optionsHindi ? question.optionsHindi : question.options);
   const displayedExplanation =
-    language === 'Hindi' && question.explanationHindi ? question.explanationHindi : question.explanation;
+    translated?.explanation ??
+    (language === 'Hindi' && question.explanationHindi
+      ? question.explanationHindi
+      : question.explanation);
 
   return (
     <>

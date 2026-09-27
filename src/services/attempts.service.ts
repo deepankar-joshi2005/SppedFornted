@@ -21,10 +21,24 @@ export interface SubjectSection {
   name: string;
   startNo: number;
   endNo: number;
+  durationMinutes?: number;
+}
+
+export type SectionProgressStatus = 'pending' | 'active' | 'submitted';
+
+export interface SectionProgress {
+  name: string;
+  startNo: number;
+  endNo: number;
+  durationSeconds: number | null;
+  status: SectionProgressStatus;
+  startedAt: string | null;
+  submittedAt: string | null;
 }
 
 export interface StartAttemptResponse {
   attemptId: string;
+  attemptStatus: 'in-progress' | 'completed';
   test: {
     id: string;
     title: string;
@@ -33,8 +47,11 @@ export interface StartAttemptResponse {
     totalMarks: number;
     negativeMarks: number;
     subjectSections: SubjectSection[];
+    divideSectionsByTime: boolean;
   };
   startedAt: string;
+  sectionProgress: SectionProgress[];
+  activeSectionName: string | null;
   questions: AttemptQuestion[];
   answers: AttemptAnswer[];
 }
@@ -111,6 +128,15 @@ export interface HistoryItem {
 }
 
 export class CoachingOnlyError extends Error {}
+export class SectionLockedError extends Error {
+  activeSectionName: string | null;
+  sectionProgress: SectionProgress[];
+  constructor(message: string, activeSectionName: string | null, sectionProgress: SectionProgress[]) {
+    super(message);
+    this.activeSectionName = activeSectionName;
+    this.sectionProgress = sectionProgress;
+  }
+}
 export class TestSeriesPaidError extends Error {
   seriesId: string;
   price: number;
@@ -168,7 +194,33 @@ export const saveAnswer = async (
   try {
     await api.patch(`/attempts/${attemptId}/answer`, payload, authHeaders(token));
   } catch (error) {
+    if (isAxiosError(error) && error.response?.data?.code === 'SECTION_LOCKED') {
+      const d = error.response.data;
+      throw new SectionLockedError(d.message, d.activeSectionName, d.sectionProgress);
+    }
     throw new Error(extractErrorMessage(error, 'Failed to save answer.'));
+  }
+};
+
+export const submitSection = async (
+  token: string,
+  attemptId: string,
+  name: string
+): Promise<{
+  completed: boolean;
+  activeSectionName: string | null;
+  sectionProgress: SectionProgress[];
+  result?: AttemptResult;
+}> => {
+  try {
+    const response = await api.post(
+      `/attempts/${attemptId}/section/submit`,
+      { name },
+      authHeaders(token)
+    );
+    return response.data;
+  } catch (error) {
+    throw new Error(extractErrorMessage(error, 'Failed to submit section.'));
   }
 };
 
