@@ -31,6 +31,7 @@ export const uploadImage = async (
         Authorization: `Bearer ${token}`,
         'Content-Type': 'multipart/form-data',
       },
+      timeout: 0,
     });
     return response.data.url;
   } catch (error) {

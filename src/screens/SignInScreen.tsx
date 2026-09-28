@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import AuthLayout from '../components/AuthLayout';
 import FormInput from '../components/FormInput';
 import PrimaryButton from '../components/PrimaryButton';
@@ -10,12 +10,13 @@ import { isValidEmail } from '../utils/validation';
 type Props = {
   onLoginSuccess: (result: AuthResponse) => void;
   onGoToSignUp: () => void;
+  onForgotPassword: () => void;
   initialEmail?: string;
 };
 
 type Errors = Partial<Record<'email' | 'password', string>>;
 
-export default function SignInScreen({ onLoginSuccess, onGoToSignUp, initialEmail }: Props) {
+export default function SignInScreen({ onLoginSuccess, onGoToSignUp, onForgotPassword, initialEmail }: Props) {
   const [email, setEmail] = useState(initialEmail ?? '');
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState<Errors>({});
@@ -81,7 +82,7 @@ export default function SignInScreen({ onLoginSuccess, onGoToSignUp, initialEmai
 
       <Pressable
         style={styles.forgotWrap}
-        onPress={() => Alert.alert('Coming soon', 'Password reset is not built yet.')}
+        onPress={onForgotPassword}
         hitSlop={8}
       >
         <Text style={styles.forgotText}>Forgot Password?</Text>

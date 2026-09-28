@@ -216,6 +216,7 @@ export const importQuestions = async (
           'Content-Type': 'multipart/form-data',
         },
         params: { commit: commit ? 'true' : 'false' },
+        timeout: 0,
       }
     );
     return response.data;

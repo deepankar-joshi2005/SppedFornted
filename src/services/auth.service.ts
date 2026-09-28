@@ -66,3 +66,16 @@ export const logoutUser = async (token: string): Promise<void> => {
     // best-effort — local session is cleared regardless
   }
 };
+
+export const resetPassword = async (payload: {
+  email: string;
+  newPassword: string;
+  confirmPassword: string;
+}): Promise<string> => {
+  try {
+    const response = await api.post<{ message: string }>('/auth/reset-password', payload);
+    return response.data.message;
+  } catch (error) {
+    throw new Error(extractErrorMessage(error, 'Failed to reset password. Please try again.'));
+  }
+};

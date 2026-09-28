@@ -1,8 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
-import * as ScreenCapture from 'expo-screen-capture';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Dimensions,
+  Image,
   Platform,
   Pressable,
   ScrollView,
@@ -12,6 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import NotificationBell from '../components/NotificationBell';
+import { resolveAssetUrl } from '../config/api';
 import { Nav } from '../navigation/types';
 import { getSolutions, SolutionQuestion, SolutionsResponse } from '../services/attempts.service';
 import {
@@ -29,6 +31,8 @@ type Props = {
 };
 
 const OPTION_LETTERS = ['A', 'B', 'C', 'D'];
+const SCREEN_WIDTH = Dimensions.get('window').width;
+const QUESTION_IMAGE_HEIGHT = Math.min(260, SCREEN_WIDTH * 0.62);
 
 export default function SolutionReviewScreen({ token, attemptId, nav }: Props) {
   const [data, setData] = useState<SolutionsResponse | null>(null);
@@ -38,13 +42,7 @@ export default function SolutionReviewScreen({ token, attemptId, nav }: Props) {
   const [fullView, setFullView] = useState(false);
   const [language, setLanguage] = useState<'Hindi' | 'English'>('English');
 
-  useEffect(() => {
-    if (Platform.OS === 'web') return;
-    ScreenCapture.preventScreenCaptureAsync();
-    return () => {
-      ScreenCapture.allowScreenCaptureAsync();
-    };
-  }, []);
+
 
   useEffect(() => {
     (async () => {
@@ -272,6 +270,14 @@ function QuestionBlock({
     <>
       <Text style={styles.questionText}>{displayedText}</Text>
 
+      {!!question.image && (
+        <Image
+          source={{ uri: resolveAssetUrl(question.image) }}
+          style={styles.questionImage}
+          resizeMode="contain"
+        />
+      )}
+
       <View style={styles.optionsList}>
         {displayedOptions.map((option, optIdx) => {
           const isCorrectOption = optIdx === question.correctOptionIndex;
@@ -458,6 +464,13 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#1E2937',
     lineHeight: 22,
+  },
+  questionImage: {
+    width: '100%',
+    height: QUESTION_IMAGE_HEIGHT,
+    borderRadius: 10,
+    backgroundColor: '#F3F4F6',
+    marginTop: 12,
   },
   optionsList: {
     marginTop: 16,

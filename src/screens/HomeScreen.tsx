@@ -249,34 +249,7 @@ export default function HomeScreen({ user, token, nav }: Props) {
 
   const activitiesList: ActivityItem[] = data?.myActivities ?? [];
 
-  const storiesList: SuccessStoryItem[] = data?.successStories?.length
-    ? data.successStories
-    : [
-        {
-          id: 's1',
-          studentName: 'MD ASIF',
-          studentImage: '',
-          examTag: '• SSC CGL 2025 Selected',
-          reviewText:
-            'It is so helpful for me Speed Education team. I am really grateful to Admin sir and for my preparation 🎓🎉❤️',
-        },
-        {
-          id: 's2',
-          studentName: 'PRIYA SHARMA',
-          studentImage: '',
-          examTag: '• RRB NTPC AIR 14',
-          reviewText:
-            'Speed Education live mock tests helped me boost my speed and confidence tremendously before the exam!',
-        },
-        {
-          id: 's3',
-          studentName: 'KUNAL KUMAR',
-          studentImage: '',
-          examTag: '• SSC CGL 2025 Selected',
-          reviewText:
-            'It was a wonderful preparation journey of mine with Speed Education. I was blessed to get taught by the teachers!',
-        },
-      ];
+  const storiesList: SuccessStoryItem[] = data?.successStories ?? [];
 
   // Auto-scroll Banners
   useEffect(() => {
@@ -910,73 +883,77 @@ export default function HomeScreen({ user, token, nav }: Props) {
           </View>
         )}
 
-        {/* Success Stories Section */}
-        <Pressable
-          style={styles.sectionHeaderRow}
-          onPress={() => nav.push({ name: 'studentReviews' })}
-        >
-          <View style={styles.sectionTitleWithAccent}>
-            <View style={styles.blueAccentBar} />
-            <Text style={styles.sectionTitleText}>Success Stories</Text>
-          </View>
-        </Pressable>
+        {/* Success Stories Section — only shown when admin has uploaded stories */}
+        {storiesList.length > 0 && (
+          <>
+            <Pressable
+              style={styles.sectionHeaderRow}
+              onPress={() => nav.push({ name: 'studentReviews' })}
+            >
+              <View style={styles.sectionTitleWithAccent}>
+                <View style={styles.blueAccentBar} />
+                <Text style={styles.sectionTitleText}>Success Stories</Text>
+              </View>
+            </Pressable>
 
-        <View style={styles.storiesContainer}>
-          <FlatList
-            ref={storyFlatListRef}
-            data={storiesList}
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            keyExtractor={(item) => item.id}
-            getItemLayout={(_data, index) => ({
-              length: SCREEN_WIDTH - 36,
-              offset: (SCREEN_WIDTH - 36) * index,
-              index,
-            })}
-            onScrollToIndexFailed={(info) => {
-              storyFlatListRef.current?.scrollToOffset({
-                offset: info.averageItemLength * info.index,
-                animated: true,
-              });
-            }}
-            onMomentumScrollEnd={(e) => {
-              const index = Math.round(e.nativeEvent.contentOffset.x / (SCREEN_WIDTH - 36));
-              setActiveStoryIndex(index);
-            }}
-            renderItem={({ item }) => (
+            <View style={styles.storiesContainer}>
+              <FlatList
+                ref={storyFlatListRef}
+                data={storiesList}
+                horizontal
+                pagingEnabled
+                showsHorizontalScrollIndicator={false}
+                keyExtractor={(item) => item.id}
+                getItemLayout={(_data, index) => ({
+                  length: SCREEN_WIDTH - 36,
+                  offset: (SCREEN_WIDTH - 36) * index,
+                  index,
+                })}
+                onScrollToIndexFailed={(info) => {
+                  storyFlatListRef.current?.scrollToOffset({
+                    offset: info.averageItemLength * info.index,
+                    animated: true,
+                  });
+                }}
+                onMomentumScrollEnd={(e) => {
+                  const index = Math.round(e.nativeEvent.contentOffset.x / (SCREEN_WIDTH - 36));
+                  setActiveStoryIndex(index);
+                }}
+                renderItem={({ item }) => (
+                  <Pressable
+                    style={styles.storyCard}
+                    onPress={() => nav.push({ name: 'studentReviews' })}
+                  >
+                    <View style={styles.storyHeaderRow}>
+                      {item.studentImage ? (
+                        <Image
+                          source={{ uri: resolveAssetUrl(item.studentImage) }}
+                          style={styles.storyAvatar}
+                        />
+                      ) : (
+                        <View style={styles.storyAvatarPlaceholder}>
+                          <Text style={styles.storyAvatarText}>{getInitials(item.studentName)}</Text>
+                        </View>
+                      )}
+                      <View style={styles.storyMetaWrap}>
+                        <Text style={styles.storyStudentName}>{item.studentName}</Text>
+                        <Text style={styles.storyExamTag}>{item.examTag}</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.storyReviewText}>{item.reviewText}</Text>
+                  </Pressable>
+                )}
+              />
+
               <Pressable
-                style={styles.storyCard}
+                style={styles.viewAllReviewsBtn}
                 onPress={() => nav.push({ name: 'studentReviews' })}
               >
-                <View style={styles.storyHeaderRow}>
-                  {item.studentImage ? (
-                    <Image
-                      source={{ uri: resolveAssetUrl(item.studentImage) }}
-                      style={styles.storyAvatar}
-                    />
-                  ) : (
-                    <View style={styles.storyAvatarPlaceholder}>
-                      <Text style={styles.storyAvatarText}>{getInitials(item.studentName)}</Text>
-                    </View>
-                  )}
-                  <View style={styles.storyMetaWrap}>
-                    <Text style={styles.storyStudentName}>{item.studentName}</Text>
-                    <Text style={styles.storyExamTag}>{item.examTag}</Text>
-                  </View>
-                </View>
-                <Text style={styles.storyReviewText}>{item.reviewText}</Text>
+                <Text style={styles.viewAllReviewsText}>View All Reviews</Text>
               </Pressable>
-            )}
-          />
-
-          <Pressable
-            style={styles.viewAllReviewsBtn}
-            onPress={() => nav.push({ name: 'studentReviews' })}
-          >
-            <Text style={styles.viewAllReviewsText}>View All Reviews</Text>
-          </Pressable>
-        </View>
+            </View>
+          </>
+        )}
       </ScrollView>
       </View>
     </SafeAreaView>

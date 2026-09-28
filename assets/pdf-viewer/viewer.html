@@ -79,7 +79,8 @@
     window.loadPdf = async function (fileUrl, title) {
       try {
         setStatus("Loading PDF…", false);
-        document.getElementById("pages").innerHTML = "";
+        var container = document.getElementById("pages");
+        container.innerHTML = "";
         if (title) {
           document.title = title;
         }
@@ -87,20 +88,63 @@
         pdfjsLib.GlobalWorkerOptions.workerSrc = await ensureWorkerBlobUrl();
 
         var pdf = await pdfjsLib.getDocument(fileUrl).promise;
-        var container = document.getElementById("pages");
+        var canvases = new Array(pdf.numPages + 1);
+        var rendered = new Array(pdf.numPages + 1).fill(false);
+        var rendering = new Array(pdf.numPages + 1).fill(false);
 
+        // Lay out every page up front (viewport metadata only, no pixels
+        // painted yet) so the scroll area sizes correctly immediately —
+        // same look as before, just without decoding all pages at once.
         for (var i = 1; i <= pdf.numPages; i++) {
           var page = await pdf.getPage(i);
           var viewport = page.getViewport({ scale: 1.4 });
           var canvas = document.createElement("canvas");
           canvas.className = "page-canvas";
-          var context = canvas.getContext("2d");
           canvas.width = viewport.width;
           canvas.height = viewport.height;
+          canvas.dataset.pageNum = String(i);
           container.appendChild(canvas);
-          await page.render({ canvasContext: context, viewport: viewport }).promise;
-          post({ type: "progress", page: i, numPages: pdf.numPages });
+          canvases[i] = canvas;
         }
+
+        async function renderPage(num) {
+          if (rendered[num] || rendering[num]) return;
+          rendering[num] = true;
+          try {
+            var page = await pdf.getPage(num);
+            var viewport = page.getViewport({ scale: 1.4 });
+            var context = canvases[num].getContext("2d");
+            await page.render({ canvasContext: context, viewport: viewport }).promise;
+            rendered[num] = true;
+            post({ type: "progress", page: num, numPages: pdf.numPages });
+          } catch (err) {
+            // A single page failing to render shouldn't fail the whole
+            // document — just leave that page blank.
+          } finally {
+            rendering[num] = false;
+          }
+        }
+
+        // Render pages only as they scroll near the viewport, instead of
+        // blocking on every page up front — this is what keeps a large
+        // (many-page / image-heavy) PDF from hanging or OOM-ing the WebView.
+        var observer = new IntersectionObserver(
+          function (entries) {
+            entries.forEach(function (entry) {
+              if (entry.isIntersecting) {
+                renderPage(Number(entry.target.dataset.pageNum));
+              }
+            });
+          },
+          { rootMargin: "1200px 0px", threshold: 0.01 }
+        );
+        for (var p = 1; p <= pdf.numPages; p++) {
+          observer.observe(canvases[p]);
+        }
+
+        // Render the first page synchronously so there's visible content
+        // the moment the loading spinner disappears.
+        await renderPage(1);
 
         setStatus("", true);
         post({ type: "loaded", numPages: pdf.numPages });

@@ -1,10 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
-import * as ScreenCapture from 'expo-screen-capture';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
+  AppState,
+  AppStateStatus,
   Dimensions,
+  Image,
   Modal,
   Platform,
   Pressable,
@@ -14,6 +16,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { resolveAssetUrl } from '../config/api';
 import { Nav } from '../navigation/types';
 import {
   AttemptQuestion,
@@ -47,6 +50,9 @@ const OPTION_LETTERS = ['A', 'B', 'C', 'D'];
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const PALETTE_WIDTH = SCREEN_WIDTH * 0.7;
 const IS_SMALL_SCREEN = SCREEN_WIDTH < 360;
+// Scales with screen width (bigger phones get a slightly taller preview) but
+// caps out so the image never crowds the question off small screens.
+const QUESTION_IMAGE_HEIGHT = Math.min(260, SCREEN_WIDTH * 0.62);
 
 const STATUS_COLORS: Record<QStatus, string> = {
   attempted: '#22C55E',
@@ -90,12 +96,37 @@ export default function TestTakingScreen({ token, testId, initialLanguage, nav }
   const questionTimeRef = useRef<Record<string, number>>({});
   const questionEnteredAtRef = useRef<number>(Date.now());
   const pendingSavesRef = useRef<Promise<unknown>[]>([]);
+  // Absolute wall-clock timestamp (ms) at which the current timer/section
+  // hits zero. Countdown is derived from this on every tick instead of a
+  // simple decrement, so backgrounding the app (which pauses JS timers)
+  // doesn't stop the exam clock — whenever the app resumes, the next tick
+  // immediately reflects the real time elapsed while it was away.
+  const deadlineRef = useRef<number | null>(null);
+  const pauseStartRef = useRef<number | null>(null);
+  const tickRef = useRef<() => void>(() => {});
   const paletteTranslateX = useRef(new Animated.Value(PALETTE_WIDTH)).current;
   const paletteBackdropOpacity = paletteTranslateX.interpolate({
     inputRange: [0, PALETTE_WIDTH],
     outputRange: [0.4, 0],
     extrapolate: 'clamp',
   });
+
+  // Manual in-app pause (the Pause button/modal) is the one case where the
+  // clock SHOULD stop — unlike backgrounding the app. Shifting the deadline
+  // forward by however long the pause lasted preserves the remaining time
+  // exactly as it was when paused.
+  const handlePause = () => {
+    pauseStartRef.current = Date.now();
+    setIsPaused(true);
+  };
+
+  const handleResume = () => {
+    if (pauseStartRef.current != null && deadlineRef.current != null) {
+      deadlineRef.current += Date.now() - pauseStartRef.current;
+    }
+    pauseStartRef.current = null;
+    setIsPaused(false);
+  };
 
   const openPalette = () => {
     setShowPalette(true);
@@ -129,13 +160,7 @@ export default function TestTakingScreen({ token, testId, initialLanguage, nav }
     }
   };
 
-  useEffect(() => {
-    if (Platform.OS === 'web') return;
-    ScreenCapture.preventScreenCaptureAsync();
-    return () => {
-      ScreenCapture.allowScreenCaptureAsync();
-    };
-  }, []);
+
 
   useEffect(() => {
     (async () => {
@@ -172,11 +197,15 @@ export default function TestTakingScreen({ token, testId, initialLanguage, nav }
         preloadQuestionTranslations(result.questions, 'English');
 
         if (result.test.divideSectionsByTime && activeSec?.startedAt) {
-          const elapsed = (Date.now() - new Date(activeSec.startedAt).getTime()) / 1000;
-          setRemainingSeconds(Math.max(0, (activeSec.durationSeconds ?? 0) - elapsed));
+          const deadline =
+            new Date(activeSec.startedAt).getTime() + (activeSec.durationSeconds ?? 0) * 1000;
+          deadlineRef.current = deadline;
+          setRemainingSeconds(Math.max(0, (deadline - Date.now()) / 1000));
         } else {
-          const elapsed = (Date.now() - new Date(result.startedAt).getTime()) / 1000;
-          setRemainingSeconds(Math.max(0, result.test.durationMinutes * 60 - elapsed));
+          const deadline =
+            new Date(result.startedAt).getTime() + result.test.durationMinutes * 60 * 1000;
+          deadlineRef.current = deadline;
+          setRemainingSeconds(Math.max(0, (deadline - Date.now()) / 1000));
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load test.');
@@ -251,6 +280,7 @@ export default function TestTakingScreen({ token, testId, initialLanguage, nav }
         const next = res.sectionProgress.find((s) => s.name === res.activeSectionName);
         if (next) {
           setIndex(next.startNo - 1);
+          deadlineRef.current = Date.now() + (next.durationSeconds ?? 0) * 1000;
           setRemainingSeconds(next.durationSeconds ?? 0);
           setSectionNotice(`Now on: ${next.name}`);
           const nextQuestion = session.questions[next.startNo - 1];
@@ -269,22 +299,42 @@ export default function TestTakingScreen({ token, testId, initialLanguage, nav }
 
   useEffect(() => {
     if (!session || isPaused) return;
-    const timer = setInterval(() => {
-      setRemainingSeconds((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          if (divideByTime && activeSectionName) {
-            handleSectionAdvance(activeSectionName);
-          } else {
-            handleSubmit();
-          }
-          return 0;
+    let stopped = false;
+    const tick = () => {
+      if (stopped || deadlineRef.current == null) return;
+      const remaining = Math.max(0, (deadlineRef.current - Date.now()) / 1000);
+      setRemainingSeconds(remaining);
+      if (remaining <= 0) {
+        stopped = true;
+        clearInterval(timer);
+        if (divideByTime && activeSectionName) {
+          handleSectionAdvance(activeSectionName);
+        } else {
+          handleSubmit();
         }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(timer);
+      }
+    };
+    tickRef.current = tick;
+    const timer = setInterval(tick, 1000);
+    return () => {
+      stopped = true;
+      clearInterval(timer);
+    };
   }, [session, handleSubmit, handleSectionAdvance, isPaused, divideByTime, activeSectionName]);
+
+  // JS timers are suspended while the app is backgrounded, so setInterval
+  // alone can silently miss ticks. Re-sync from the absolute deadline the
+  // moment the app comes back to the foreground, instead of waiting up to a
+  // second for the next natural tick — the exam clock keeps counting down
+  // for however long the student was away, it just doesn't stop.
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextState: AppStateStatus) => {
+      if (nextState === 'active' && !isPaused) {
+        tickRef.current();
+      }
+    });
+    return () => subscription.remove();
+  }, [isPaused]);
 
   const currentQuestion: AttemptQuestion | undefined = session?.questions[index];
   const [translatedQuestion, setTranslatedQuestion] = useState<TranslatedQuestionResult | null>(null);
@@ -556,7 +606,7 @@ export default function TestTakingScreen({ token, testId, initialLanguage, nav }
           {session.test.title}
         </Text>
         <View style={styles.topBarRightGroup}>
-          <Pressable style={styles.pauseBtn} onPress={() => setIsPaused(true)} hitSlop={8}>
+          <Pressable style={styles.pauseBtn} onPress={handlePause} hitSlop={8}>
             <Ionicons name="pause" size={18} color={NAVY} />
           </Pressable>
           <Pressable style={styles.paletteBtn} onPress={openPalette} hitSlop={8}>
@@ -676,6 +726,14 @@ export default function TestTakingScreen({ token, testId, initialLanguage, nav }
         </View>
 
         <Text style={styles.questionText}>{displayedText}</Text>
+
+        {!!currentQuestion.image && (
+          <Image
+            source={{ uri: resolveAssetUrl(currentQuestion.image) }}
+            style={styles.questionImage}
+            resizeMode="contain"
+          />
+        )}
 
         <View style={styles.optionsList}>
           {displayedOptions.map((option, optIdx) => {
@@ -1008,7 +1066,7 @@ export default function TestTakingScreen({ token, testId, initialLanguage, nav }
             </View>
             <Text style={styles.pauseTitle}>Test Paused</Text>
             <Text style={styles.pauseSubtitle}>Time Remaining: {formatTime(remainingSeconds)}</Text>
-            <Pressable style={styles.submitBtn} onPress={() => setIsPaused(false)}>
+            <Pressable style={styles.submitBtn} onPress={handleResume}>
               <Text style={styles.submitBtnText}>Resume Test</Text>
             </Pressable>
           </View>
@@ -1259,6 +1317,13 @@ const styles = StyleSheet.create({
     color: '#1E2937',
     marginTop: 14,
     lineHeight: 24,
+  },
+  questionImage: {
+    width: '100%',
+    height: QUESTION_IMAGE_HEIGHT,
+    borderRadius: 10,
+    backgroundColor: '#F3F4F6',
+    marginTop: 12,
   },
   optionsList: {
     marginTop: 22,

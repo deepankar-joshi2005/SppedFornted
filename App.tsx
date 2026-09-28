@@ -9,6 +9,7 @@ import CategoriesScreen from './src/screens/CategoriesScreen';
 import EbooksScreen from './src/screens/EbooksScreen';
 import EditProfileScreen from './src/screens/EditProfileScreen';
 import FreeTestsScreen from './src/screens/FreeTestsScreen';
+import ForgotPasswordScreen from './src/screens/ForgotPasswordScreen';
 import HelpSupportScreen from './src/screens/HelpSupportScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import LandingScreen from './src/screens/LandingScreen';
@@ -38,7 +39,7 @@ import { AuthUser, logoutUser } from './src/services/auth.service';
 import { LanguageProvider } from './src/context/LanguageContext';
 import { loadAuth, saveAuth, clearAuth, StoredAuth } from './src/utils/authStorage';
 
-type AuthScreen = 'landing' | 'signup' | 'login';
+type AuthScreen = 'landing' | 'signup' | 'login' | 'forgotPassword';
 
 export default function App() {
   // Prevent screenshots and screen recording across the entire app
@@ -203,11 +204,18 @@ export default function App() {
         {authScreen === 'login' && (
           <SignInScreen
             onGoToSignUp={() => setAuthScreen('signup')}
+            onForgotPassword={() => setAuthScreen('forgotPassword')}
             initialEmail={prefillEmail}
             onLoginSuccess={(result) => {
               saveAuth(result.token, result.user);
               enterApp(result);
             }}
+          />
+        )}
+        {authScreen === 'forgotPassword' && (
+          <ForgotPasswordScreen
+            onBack={() => setAuthScreen('login')}
+            onSuccess={() => setAuthScreen('login')}
           />
         )}
       </SafeAreaProvider>
