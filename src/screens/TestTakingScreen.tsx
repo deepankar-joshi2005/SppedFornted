@@ -725,7 +725,7 @@ export default function TestTakingScreen({ token, testId, initialLanguage, nav }
           </View>
         </View>
 
-        <Text style={styles.questionText}>{displayedText}</Text>
+        {!!displayedText && <Text style={styles.questionText}>{displayedText}</Text>}
 
         {!!currentQuestion.image && (
           <Image
@@ -738,6 +738,7 @@ export default function TestTakingScreen({ token, testId, initialLanguage, nav }
         <View style={styles.optionsList}>
           {displayedOptions.map((option, optIdx) => {
             const selected = currentAnswer.selectedOption === optIdx;
+            const optionImage = currentQuestion.optionImages?.[optIdx];
             return (
               <Pressable
                 key={optIdx}
@@ -749,9 +750,20 @@ export default function TestTakingScreen({ token, testId, initialLanguage, nav }
                     {OPTION_LETTERS[optIdx]}
                   </Text>
                 </View>
-                <Text style={[styles.optionText, selected && styles.optionTextSelected]}>
-                  {option}
-                </Text>
+                <View style={styles.optionContent}>
+                  {!!option && (
+                    <Text style={[styles.optionText, selected && styles.optionTextSelected]}>
+                      {option}
+                    </Text>
+                  )}
+                  {!!optionImage && (
+                    <Image
+                      source={{ uri: resolveAssetUrl(optionImage) }}
+                      style={styles.optionImage}
+                      resizeMode="contain"
+                    />
+                  )}
+                </View>
               </Pressable>
             );
           })}
@@ -1378,14 +1390,23 @@ const styles = StyleSheet.create({
   optionLetterSelected: {
     color: '#FFFFFF',
   },
-  optionText: {
+  optionContent: {
     flex: 1,
+  },
+  optionText: {
     fontSize: 14.5,
     color: '#1E2937',
   },
   optionTextSelected: {
     color: NAVY,
     fontWeight: '700',
+  },
+  optionImage: {
+    width: '100%',
+    height: Math.min(160, SCREEN_WIDTH * 0.4),
+    borderRadius: 8,
+    backgroundColor: '#F3F4F6',
+    marginTop: 6,
   },
   bottomBar: {
     flexDirection: 'row',

@@ -39,7 +39,8 @@ export type AdminRoute =
   | { name: 'upcomingMocks' }
   | { name: 'pyq' }
   | { name: 'ebooks' }
-  | { name: 'socialMedia' };
+  | { name: 'socialMedia' }
+  | { name: 'changePassword' };
 
 export type AdminNav = {
   push: (route: AdminRoute) => void;

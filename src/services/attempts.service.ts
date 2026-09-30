@@ -9,6 +9,7 @@ export interface AttemptQuestion {
   image: string | null;
   options: string[];
   optionsHindi: string[] | null;
+  optionImages: (string | null)[] | null;
   order: number;
 }
 
@@ -105,9 +106,11 @@ export interface SolutionQuestion {
   image: string | null;
   options: string[];
   optionsHindi: string[] | null;
+  optionImages: (string | null)[] | null;
   correctOptionIndex: number;
   explanation: string;
   explanationHindi: string | null;
+  explanationImage: string | null;
   selectedOption: number | null;
   isCorrect: boolean | null;
 }

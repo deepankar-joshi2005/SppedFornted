@@ -88,6 +88,7 @@ export interface Translations {
   // Profile Screen
   student_profile: string;
   edit_profile: string;
+  change_password: string;
   language_preferences: string;
   help_support: string;
   logout: string;
@@ -222,6 +223,7 @@ export const TRANSLATIONS: Record<Language, Translations> = {
 
     student_profile: 'Student Profile',
     edit_profile: 'Edit Profile',
+    change_password: 'Change Password',
     language_preferences: 'Language Preferences',
     help_support: 'Help & Support',
     logout: 'Log Out',
@@ -350,6 +352,7 @@ export const TRANSLATIONS: Record<Language, Translations> = {
 
     student_profile: 'छात्र प्रोफ़ाइल',
     edit_profile: 'प्रोफ़ाइल बदलें',
+    change_password: 'पासवर्ड बदलें',
     language_preferences: 'भाषा प्राथमिकताएं',
     help_support: 'सहायता एवं समर्थन',
     logout: 'लॉग आउट',
@@ -478,6 +481,7 @@ export const TRANSLATIONS: Record<Language, Translations> = {
 
     student_profile: 'மாணவர் சுயவிவரம்',
     edit_profile: 'சுயவிவரத்தை திருத்து',
+    change_password: 'கடவுச்சொல்லை மாற்று',
     language_preferences: 'மொழி விருப்பங்கள்',
     help_support: 'உதவி மற்றும் ஆதரவு',
     logout: 'வெளியேறு',
@@ -606,6 +610,7 @@ export const TRANSLATIONS: Record<Language, Translations> = {
 
     student_profile: 'విద్యార్థి ప్రొఫైల్',
     edit_profile: 'ప్రొఫైల్ సవరించండి',
+    change_password: 'పాస్‌వర్డ్ మార్చండి',
     language_preferences: 'భాష ప్రాధాన్యతలు',
     help_support: 'సహాయం మరియు మద్దతు',
     logout: 'లాగ్ అవుట్',
@@ -734,6 +739,7 @@ export const TRANSLATIONS: Record<Language, Translations> = {
 
     student_profile: 'শিক্ষার্থীর প্রোফাইল',
     edit_profile: 'প্রোফাইল পরিবর্তন',
+    change_password: 'পাসওয়ার্ড পরিবর্তন করুন',
     language_preferences: 'ভাষা পছন্দ',
     help_support: 'সাহায্য ও সহায়তা',
     logout: 'লগ আউট',

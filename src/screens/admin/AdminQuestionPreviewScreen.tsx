@@ -1,9 +1,20 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Dimensions,
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AdminHeader from '../../components/admin/AdminHeader';
 import PrimaryButton from '../../components/PrimaryButton';
+import { resolveAssetUrl } from '../../config/api';
 import { AdminNav } from '../../navigation/adminTypes';
 import { AdminQuestion, addToTest, getQuestion } from '../../services/admin/questions.service';
 import { MUTED, NAVY } from '../../theme/colors';
@@ -16,6 +27,8 @@ type Props = {
 };
 
 const OPTION_LABELS = ['A', 'B', 'C', 'D'];
+const SCREEN_WIDTH = Dimensions.get('window').width;
+const QUESTION_IMAGE_HEIGHT = Math.min(260, SCREEN_WIDTH * 0.62);
 
 export default function AdminQuestionPreviewScreen({ token, questionId, testId, nav }: Props) {
   const [question, setQuestion] = useState<AdminQuestion | null>(null);
@@ -91,11 +104,19 @@ export default function AdminQuestionPreviewScreen({ token, questionId, testId, 
                 +{question.marks.toFixed(1)} Marks • -{question.negativeMarks.toFixed(1)} Neg
               </Text>
             </View>
-            <Text style={styles.questionText}>{question.text}</Text>
+            {!!question.text && <Text style={styles.questionText}>{question.text}</Text>}
+            {!!question.image && (
+              <Image
+                source={{ uri: resolveAssetUrl(question.image) }}
+                style={styles.questionImage}
+                resizeMode="contain"
+              />
+            )}
           </View>
 
           {question.options.map((opt, idx) => {
             const isCorrect = idx === question.correctOptionIndex;
+            const optionImage = question.optionImages?.[idx];
             return (
               <View key={idx} style={[styles.optionRow, isCorrect && styles.optionRowCorrect]}>
                 <View style={[styles.optionCircle, isCorrect && styles.optionCircleCorrect]}>
@@ -105,16 +126,34 @@ export default function AdminQuestionPreviewScreen({ token, questionId, testId, 
                     <Text style={styles.optionLetter}>{OPTION_LABELS[idx]}</Text>
                   )}
                 </View>
-                <Text style={styles.optionText}>{opt}</Text>
+                <View style={styles.optionContent}>
+                  {!!opt && <Text style={styles.optionText}>{opt}</Text>}
+                  {!!optionImage && (
+                    <Image
+                      source={{ uri: resolveAssetUrl(optionImage) }}
+                      style={styles.optionImage}
+                      resizeMode="contain"
+                    />
+                  )}
+                </View>
                 {isCorrect && <Text style={styles.correctTag}>CORRECT</Text>}
               </View>
             );
           })}
 
-          {!!question.explanation && (
+          {!!(question.explanation || question.explanationImage) && (
             <View style={styles.explanationBox}>
               <Text style={styles.explanationTitle}>EXPLANATION</Text>
-              <Text style={styles.explanationText}>{question.explanation}</Text>
+              {!!question.explanationImage && (
+                <Image
+                  source={{ uri: resolveAssetUrl(question.explanationImage) }}
+                  style={styles.questionImage}
+                  resizeMode="contain"
+                />
+              )}
+              {!!question.explanation && (
+                <Text style={styles.explanationText}>{question.explanation}</Text>
+              )}
             </View>
           )}
 
@@ -170,6 +209,13 @@ const styles = StyleSheet.create({
   subjectBadgeText: { fontSize: 10.5, fontWeight: '800', color: MUTED },
   marksText: { fontSize: 11.5, fontWeight: '700', color: '#2E9E5B' },
   questionText: { fontSize: 15, fontWeight: '700', color: NAVY, marginTop: 12, lineHeight: 21 },
+  questionImage: {
+    width: '100%',
+    height: QUESTION_IMAGE_HEIGHT,
+    borderRadius: 10,
+    backgroundColor: '#F3F4F6',
+    marginTop: 12,
+  },
   optionRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -193,7 +239,15 @@ const styles = StyleSheet.create({
   },
   optionCircleCorrect: { backgroundColor: '#2E9E5B' },
   optionLetter: { fontSize: 12, fontWeight: '800', color: NAVY },
-  optionText: { flex: 1, fontSize: 13.5, color: NAVY },
+  optionContent: { flex: 1 },
+  optionText: { fontSize: 13.5, color: NAVY },
+  optionImage: {
+    width: '100%',
+    height: Math.min(160, SCREEN_WIDTH * 0.4),
+    borderRadius: 8,
+    backgroundColor: '#F3F4F6',
+    marginTop: 6,
+  },
   correctTag: {
     fontSize: 10,
     fontWeight: '800',

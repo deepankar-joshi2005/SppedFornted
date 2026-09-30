@@ -1,15 +1,17 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { AdminNav } from '../../navigation/adminTypes';
 import { AuthUser } from '../../services/auth.service';
 import { ERROR, MUTED, NAVY } from '../../theme/colors';
 
 type Props = {
   user: AuthUser;
+  nav: AdminNav;
   onLogout: () => void;
 };
 
-export default function AdminMoreScreen({ user, onLogout }: Props) {
+export default function AdminMoreScreen({ user, nav, onLogout }: Props) {
   const confirmLogout = () => {
     Alert.alert('Log out', 'Are you sure you want to log out of the admin panel?', [
       { text: 'Cancel', style: 'cancel' },
@@ -41,6 +43,13 @@ export default function AdminMoreScreen({ user, onLogout }: Props) {
       </View>
 
       <View style={styles.menu}>
+        <Pressable
+          style={[styles.menuRow, styles.menuRowDivider]}
+          onPress={() => nav.push({ name: 'changePassword' })}
+        >
+          <Ionicons name="key-outline" size={20} color={NAVY} />
+          <Text style={styles.menuLabel}>Change Password</Text>
+        </Pressable>
         <Pressable style={styles.menuRow} onPress={confirmLogout}>
           <Ionicons name="log-out-outline" size={20} color={ERROR} />
           <Text style={[styles.menuLabel, { color: ERROR }]}>Log Out</Text>
@@ -92,6 +101,10 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingHorizontal: 16,
     paddingVertical: 15,
+  },
+  menuRowDivider: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#EDEBE4',
   },
   menuLabel: { fontSize: 14, fontWeight: '700' },
 });

@@ -37,6 +37,7 @@ import AdminEBooksScreen from './AdminEBooksScreen';
 import AdminSectionalScreen from './AdminSectionalScreen';
 import AdminSocialMediaScreen from './AdminSocialMediaScreen';
 import AdminUpcomingMocksScreen from './AdminUpcomingMocksScreen';
+import AdminChangePasswordScreen from './AdminChangePasswordScreen';
 
 type Props = {
   user: AuthUser;
@@ -114,7 +115,10 @@ export default function AdminApp({ user, token, onLogout }: Props) {
           <AdminSectionalScreen token={token} nav={nav} />
         )}
         {current.name === 'tab' && current.tab === 'more' && (
-          <AdminMoreScreen user={user} onLogout={onLogout} />
+          <AdminMoreScreen user={user} nav={nav} onLogout={onLogout} />
+        )}
+        {current.name === 'changePassword' && (
+          <AdminChangePasswordScreen token={token} nav={nav} />
         )}
 
         {current.name === 'categories' && <AdminCategoriesScreen token={token} nav={nav} />}

@@ -31,6 +31,7 @@ export default function ProfileScreen({ token, nav, onLogout }: Props) {
 
   const menuItems: { icon: keyof typeof Ionicons.glyphMap; label: string; route: Route }[] = [
     { icon: 'person-outline', label: t('edit_profile', 'Edit Profile'), route: { name: 'editProfile' } },
+    { icon: 'key-outline', label: t('change_password', 'Change Password'), route: { name: 'changePassword' } },
     { icon: 'notifications-outline', label: t('notifications_title', 'Notifications'), route: { name: 'notifications' } },
     { icon: 'language-outline', label: t('language_preferences', 'Language Preferences'), route: { name: 'language' } },
     { icon: 'help-circle-outline', label: t('help_support', 'Help & Support'), route: { name: 'help' } },

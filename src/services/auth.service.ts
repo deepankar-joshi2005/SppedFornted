@@ -79,3 +79,17 @@ export const resetPassword = async (payload: {
     throw new Error(extractErrorMessage(error, 'Failed to reset password. Please try again.'));
   }
 };
+
+export const changePassword = async (
+  token: string,
+  payload: { currentPassword: string; newPassword: string; confirmPassword: string }
+): Promise<string> => {
+  try {
+    const response = await api.post<{ message: string }>('/auth/change-password', payload, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return response.data.message;
+  } catch (error) {
+    throw new Error(extractErrorMessage(error, 'Failed to change password. Please try again.'));
+  }
+};

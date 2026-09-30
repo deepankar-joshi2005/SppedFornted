@@ -65,7 +65,7 @@ const QuestionCard = memo(function QuestionCard({
             </View>
           )}
           <Text style={[styles.qText, { flex: 1 }]} numberOfLines={3}>
-            {question.text}
+            {question.text || '📷 Image question'}
           </Text>
         </View>
 

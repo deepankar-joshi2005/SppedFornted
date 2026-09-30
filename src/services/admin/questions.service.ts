@@ -15,9 +15,11 @@ export interface AdminQuestion {
   image: string | null;
   options: string[];
   optionsHindi: string[];
+  optionImages: (string | null)[];
   correctOptionIndex: number;
   explanation: string;
   explanationHindi: string;
+  explanationImage: string | null;
   difficulty: QuestionDifficulty;
   marks: number;
   negativeMarks: number;
@@ -40,9 +42,11 @@ export interface QuestionPayload {
   image?: string | null;
   options: string[];
   optionsHindi?: string[];
+  optionImages?: (string | null)[];
   correctOptionIndex: number;
   explanation?: string;
   explanationHindi?: string;
+  explanationImage?: string | null;
   difficulty?: QuestionDifficulty;
   marks?: number;
   negativeMarks?: number;

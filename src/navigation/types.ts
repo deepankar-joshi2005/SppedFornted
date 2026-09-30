@@ -10,6 +10,7 @@ export type Route =
   | { name: 'solutionReview'; attemptId: string }
   | { name: 'leaderboard'; testId: string }
   | { name: 'editProfile' }
+  | { name: 'changePassword' }
   | { name: 'notifications' }
   | { name: 'language' }
   | { name: 'help' }

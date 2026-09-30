@@ -2,10 +2,12 @@ import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Animated,
   Dimensions,
   FlatList,
   Image,
+  Linking,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -33,6 +35,8 @@ import { useLanguage } from '../context/LanguageContext';
 import { CARD_SHADOW, GOLD, GOLD_TINT, MUTED, NAVY, SOFT_SHADOW } from '../theme/colors';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
+const WHATSAPP_SUPPORT_NUMBER = '919997080097';
 
 type Props = {
   user: AuthUser;
@@ -210,6 +214,13 @@ export default function HomeScreen({ user, token, nav }: Props) {
     if (!isPanelOpenRef.current) {
       snapOpen();
     }
+  }, []);
+
+  const openWhatsAppSupport = useCallback(() => {
+    const message = encodeURIComponent('Hi, I need help with Speed Education.');
+    Linking.openURL(`https://wa.me/${WHATSAPP_SUPPORT_NUMBER}?text=${message}`).catch(() => {
+      Alert.alert('Unable to open WhatsApp', 'Please make sure WhatsApp is installed on your device.');
+    });
   }, []);
 
   const firstName = user.name.split(' ')[0];
@@ -955,6 +966,15 @@ export default function HomeScreen({ user, token, nav }: Props) {
           </>
         )}
       </ScrollView>
+
+      <Pressable
+        style={styles.whatsappFab}
+        onPress={openWhatsAppSupport}
+        hitSlop={8}
+        accessibilityLabel="Chat with us on WhatsApp"
+      >
+        <Ionicons name="logo-whatsapp" size={30} color="#FFFFFF" />
+      </Pressable>
       </View>
     </SafeAreaView>
   );
@@ -964,6 +984,23 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: '#F5F6FA',
+  },
+  whatsappFab: {
+    position: 'absolute',
+    right: 16,
+    bottom: 40,
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: '#25D366',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 6,
   },
   fixedTopHeader: {
     backgroundColor: '#F5F6FA',

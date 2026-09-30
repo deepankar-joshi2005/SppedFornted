@@ -268,7 +268,7 @@ function QuestionBlock({
 
   return (
     <>
-      <Text style={styles.questionText}>{displayedText}</Text>
+      {!!displayedText && <Text style={styles.questionText}>{displayedText}</Text>}
 
       {!!question.image && (
         <Image
@@ -308,10 +308,26 @@ function QuestionBlock({
                   {OPTION_LETTERS[optIdx]}
                 </Text>
               </View>
-              <Text style={styles.optionText}>
-                {option}
-                {isCorrectOption ? ' (Correct Answer)' : showWrong ? ' (Your Answer)' : ''}
-              </Text>
+              <View style={styles.optionContent}>
+                {!!option && <Text style={styles.optionText}>{option}</Text>}
+                {!!question.optionImages?.[optIdx] && (
+                  <Image
+                    source={{ uri: resolveAssetUrl(question.optionImages[optIdx] as string) }}
+                    style={styles.optionImage}
+                    resizeMode="contain"
+                  />
+                )}
+                {(isCorrectOption || showWrong) && (
+                  <Text
+                    style={[
+                      styles.optionAnnotation,
+                      { color: isCorrectOption ? '#2E9E5B' : ERROR },
+                    ]}
+                  >
+                    {isCorrectOption ? '(Correct Answer)' : '(Your Answer)'}
+                  </Text>
+                )}
+              </View>
               {isCorrectOption && <Ionicons name="checkmark-circle" size={18} color="#2E9E5B" />}
               {showWrong && <Ionicons name="close-circle" size={18} color={ERROR} />}
             </View>
@@ -319,10 +335,19 @@ function QuestionBlock({
         })}
       </View>
 
-      {!!displayedExplanation && (
+      {!!(displayedExplanation || question.explanationImage) && (
         <View style={styles.explanationBox}>
           <Text style={styles.explanationTitle}>Detailed Solution & Concept:</Text>
-          <Text style={styles.explanationText}>{displayedExplanation}</Text>
+          {!!question.explanationImage && (
+            <Image
+              source={{ uri: resolveAssetUrl(question.explanationImage) }}
+              style={styles.explanationImage}
+              resizeMode="contain"
+            />
+          )}
+          {!!displayedExplanation && (
+            <Text style={styles.explanationText}>{displayedExplanation}</Text>
+          )}
         </View>
       )}
     </>
@@ -516,10 +541,24 @@ const styles = StyleSheet.create({
   optionLetterLight: {
     color: '#FFFFFF',
   },
-  optionText: {
+  optionContent: {
     flex: 1,
+  },
+  optionText: {
     fontSize: 13.5,
     color: '#1E2937',
+  },
+  optionImage: {
+    width: '100%',
+    height: Math.min(160, SCREEN_WIDTH * 0.4),
+    borderRadius: 8,
+    backgroundColor: '#F3F4F6',
+    marginTop: 6,
+  },
+  optionAnnotation: {
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: 4,
   },
   explanationBox: {
     marginTop: 18,
@@ -537,6 +576,13 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#2E5B41',
     lineHeight: 19,
+  },
+  explanationImage: {
+    width: '100%',
+    height: QUESTION_IMAGE_HEIGHT,
+    borderRadius: 10,
+    backgroundColor: '#FFFFFF',
+    marginBottom: 10,
   },
   fullViewBlock: {
     marginBottom: 20,

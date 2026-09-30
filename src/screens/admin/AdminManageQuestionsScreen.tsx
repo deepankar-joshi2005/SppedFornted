@@ -133,7 +133,7 @@ export default function AdminManageQuestionsScreen({ token, testId, nav }: Props
                 <View style={styles.cardHeader}>
                   <Text style={styles.qIndex}>Q{idx + 1}</Text>
                   <Text style={styles.qText} numberOfLines={3}>
-                    {q.text}
+                    {q.text || '📷 Image question'}
                   </Text>
                 </View>
                 <View style={styles.tagsRow}>

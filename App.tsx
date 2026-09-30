@@ -8,6 +8,7 @@ import { Nav, Route, routeTab } from './src/navigation/types';
 import CategoriesScreen from './src/screens/CategoriesScreen';
 import EbooksScreen from './src/screens/EbooksScreen';
 import EditProfileScreen from './src/screens/EditProfileScreen';
+import ChangePasswordScreen from './src/screens/ChangePasswordScreen';
 import FreeTestsScreen from './src/screens/FreeTestsScreen';
 import ForgotPasswordScreen from './src/screens/ForgotPasswordScreen';
 import HelpSupportScreen from './src/screens/HelpSupportScreen';
@@ -296,6 +297,9 @@ export default function App() {
               <LeaderboardScreen token={token} testId={current.testId} nav={nav} />
             )}
             {current.name === 'editProfile' && <EditProfileScreen token={token} nav={nav} />}
+            {current.name === 'changePassword' && (
+              <ChangePasswordScreen token={token} nav={nav} />
+            )}
             {current.name === 'notifications' && <NotificationsScreen token={token} nav={nav} />}
             {current.name === 'language' && <LanguagePreferenceScreen token={token} nav={nav} />}
             {current.name === 'help' && <HelpSupportScreen token={token} nav={nav} />}

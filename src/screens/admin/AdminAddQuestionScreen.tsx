@@ -53,9 +53,14 @@ export default function AdminAddQuestionScreen({
   const [showImagePicker, setShowImagePicker] = useState(false);
   const [options, setOptions] = useState(['', '', '', '']);
   const [optionsHindi, setOptionsHindi] = useState(['', '', '', '']);
+  const [optionImages, setOptionImages] = useState<(string | null)[]>([null, null, null, null]);
+  const [showOptionImagePicker, setShowOptionImagePicker] = useState([false, false, false, false]);
+  const [optionsMode, setOptionsMode] = useState<'text' | 'image'>('text');
   const [correctOptionIndex, setCorrectOptionIndex] = useState<number | null>(null);
   const [explanation, setExplanation] = useState('');
   const [explanationHindi, setExplanationHindi] = useState('');
+  const [explanationImage, setExplanationImage] = useState<string | null>(null);
+  const [showExplanationImagePicker, setShowExplanationImagePicker] = useState(false);
   const [difficulty, setDifficulty] = useState<QuestionDifficulty>('Moderate');
   const [marks, setMarks] = useState('2');
   const [negativeMarks, setNegativeMarks] = useState('0.25');
@@ -72,11 +77,19 @@ export default function AdminAddQuestionScreen({
         setText(q.text);
         setTextHindi(q.textHindi ?? '');
         setImage(q.image);
+        setShowImagePicker(!!q.image);
         setOptions(q.options);
         setOptionsHindi(q.optionsHindi?.length === 4 ? q.optionsHindi : ['', '', '', '']);
+        const loadedOptionImages =
+          q.optionImages?.length === 4 ? q.optionImages : [null, null, null, null];
+        setOptionImages(loadedOptionImages);
+        setShowOptionImagePicker(loadedOptionImages.map((img) => !!img));
+        setOptionsMode(loadedOptionImages.some((img) => img) ? 'image' : 'text');
         setCorrectOptionIndex(q.correctOptionIndex);
         setExplanation(q.explanation);
         setExplanationHindi(q.explanationHindi ?? '');
+        setExplanationImage(q.explanationImage ?? null);
+        setShowExplanationImagePicker(!!q.explanationImage);
         setDifficulty(q.difficulty);
         setMarks(String(q.marks));
         setNegativeMarks(String(q.negativeMarks));
@@ -95,9 +108,14 @@ export default function AdminAddQuestionScreen({
     setShowImagePicker(false);
     setOptions(['', '', '', '']);
     setOptionsHindi(['', '', '', '']);
+    setOptionImages([null, null, null, null]);
+    setShowOptionImagePicker([false, false, false, false]);
+    setOptionsMode('text');
     setCorrectOptionIndex(null);
     setExplanation('');
     setExplanationHindi('');
+    setExplanationImage(null);
+    setShowExplanationImagePicker(false);
   };
 
   const validate = (): boolean => {
@@ -105,21 +123,21 @@ export default function AdminAddQuestionScreen({
       Alert.alert('Subject is required');
       return false;
     }
-    if (!text.trim()) {
-      Alert.alert('Question text is required');
+    if (!text.trim() && !image) {
+      Alert.alert('Add a question text or a question image (or both)');
       return false;
     }
-    if (options.some((o) => !o.trim())) {
+    if (optionsMode === 'image') {
+      if (optionImages.some((img) => !img)) {
+        Alert.alert('Please add an image for all four options');
+        return false;
+      }
+    } else if (options.some((o) => !o.trim())) {
       Alert.alert('All four options are required');
       return false;
     }
     if (correctOptionIndex === null) {
       Alert.alert('Please mark the correct option');
-      return false;
-    }
-    const hindiOptionsFilled = optionsHindi.filter((o) => o.trim()).length;
-    if (hindiOptionsFilled > 0 && hindiOptionsFilled < 4) {
-      Alert.alert('If you fill any Hindi option, all four Hindi options are required');
       return false;
     }
     return true;
@@ -132,11 +150,13 @@ export default function AdminAddQuestionScreen({
     text: text.trim(),
     textHindi: textHindi.trim(),
     image,
-    options,
+    options: optionsMode === 'image' ? ['', '', '', ''] : options.map((o) => o.trim()),
     optionsHindi: optionsHindi.every((o) => o.trim()) ? optionsHindi : [],
+    optionImages: optionsMode === 'image' ? optionImages : [null, null, null, null],
     correctOptionIndex: correctOptionIndex as number,
     explanation,
     explanationHindi,
+    explanationImage,
     difficulty,
     marks: Number(marks) || 2,
     negativeMarks: Number(negativeMarks) || 0.25,
@@ -205,11 +225,11 @@ export default function AdminAddQuestionScreen({
             </View>
           </View>
 
-          <Text style={styles.label}>Question Text</Text>
+          <Text style={styles.label}>Question (text, image, or both)</Text>
           <View style={styles.questionCard}>
             <TextInput
               style={styles.questionInput}
-              placeholder="Enter the question text..."
+              placeholder="Enter the question text... (optional if you add an image)"
               placeholderTextColor="#9AA3B2"
               value={text}
               onChangeText={setText}
@@ -221,7 +241,7 @@ export default function AdminAddQuestionScreen({
                 onPress={() => setShowImagePicker((s) => !s)}
               >
                 <Ionicons name="image-outline" size={14} color={NAVY} />
-                <Text style={styles.chipText}>+ Add Image</Text>
+                <Text style={styles.chipText}>{image ? 'Change Image' : '+ Add Image'}</Text>
               </Pressable>
             </View>
             {showImagePicker && (
@@ -237,82 +257,145 @@ export default function AdminAddQuestionScreen({
             )}
           </View>
 
-          <Text style={styles.label}>Question Text (Hindi) — optional</Text>
-          <View style={styles.questionCard}>
-            <TextInput
-              style={styles.questionInput}
-              placeholder="प्रश्न हिंदी में लिखें..."
-              placeholderTextColor="#9AA3B2"
-              value={textHindi}
-              onChangeText={setTextHindi}
-              multiline
-            />
+          <View style={styles.optionsHeaderRow}>
+            <Text style={styles.optionsHeaderLabel}>Options (Mark Correct Option)</Text>
+            <View style={styles.optionTabGroup}>
+              <Pressable
+                style={[styles.optionTab, optionsMode === 'text' && styles.optionTabActive]}
+                onPress={() => setOptionsMode('text')}
+              >
+                <Text
+                  style={[styles.optionTabText, optionsMode === 'text' && styles.optionTabTextActive]}
+                >
+                  Text
+                </Text>
+              </Pressable>
+              <Pressable
+                style={[styles.optionTab, optionsMode === 'image' && styles.optionTabActive]}
+                onPress={() => setOptionsMode('image')}
+              >
+                <Text
+                  style={[styles.optionTabText, optionsMode === 'image' && styles.optionTabTextActive]}
+                >
+                  Image
+                </Text>
+              </Pressable>
+            </View>
           </View>
 
-          <Text style={styles.label}>Options (Mark Correct Option)</Text>
-          {options.map((opt, idx) => (
-            <Pressable
-              key={idx}
-              style={[styles.optionRow, correctOptionIndex === idx && styles.optionRowCorrect]}
-              onPress={() => setCorrectOptionIndex(idx)}
-            >
-              <Ionicons
-                name={correctOptionIndex === idx ? 'radio-button-on' : 'radio-button-off'}
-                size={18}
-                color={correctOptionIndex === idx ? '#2E9E5B' : MUTED}
-              />
-              <Text style={styles.optionLetter}>{OPTION_LABELS[idx]}</Text>
-              <TextInput
-                style={styles.optionInput}
-                placeholder={`Option ${OPTION_LABELS[idx]}`}
-                placeholderTextColor="#9AA3B2"
-                value={opt}
-                onChangeText={(v) =>
-                  setOptions((prev) => prev.map((o, i) => (i === idx ? v : o)))
-                }
-              />
-              {correctOptionIndex === idx && <Text style={styles.correctLabel}>Correct</Text>}
-            </Pressable>
-          ))}
+          {optionsMode === 'text'
+            ? options.map((opt, idx) => {
+                const isCorrect = correctOptionIndex === idx;
+                return (
+                  <Pressable
+                    key={idx}
+                    style={[styles.optionRow, isCorrect && styles.optionRowCorrect]}
+                    onPress={() => setCorrectOptionIndex(idx)}
+                  >
+                    <Ionicons
+                      name={isCorrect ? 'radio-button-on' : 'radio-button-off'}
+                      size={18}
+                      color={isCorrect ? '#2E9E5B' : MUTED}
+                    />
+                    <Text style={styles.optionLetter}>{OPTION_LABELS[idx]}</Text>
+                    <TextInput
+                      style={styles.optionInput}
+                      placeholder={`Option ${OPTION_LABELS[idx]}`}
+                      placeholderTextColor="#9AA3B2"
+                      value={opt}
+                      onChangeText={(v) =>
+                        setOptions((prev) => prev.map((o, i) => (i === idx ? v : o)))
+                      }
+                    />
+                    {isCorrect && <Text style={styles.correctLabel}>Correct</Text>}
+                  </Pressable>
+                );
+              })
+            : options.map((_opt, idx) => {
+                const isCorrect = correctOptionIndex === idx;
+                return (
+                  <View
+                    key={idx}
+                    style={[styles.optionImageCard, isCorrect && styles.optionRowCorrect]}
+                  >
+                    <Pressable
+                      style={styles.optionRadioTapZone}
+                      onPress={() => setCorrectOptionIndex(idx)}
+                    >
+                      <Ionicons
+                        name={isCorrect ? 'radio-button-on' : 'radio-button-off'}
+                        size={18}
+                        color={isCorrect ? '#2E9E5B' : MUTED}
+                      />
+                      <Text style={styles.optionImageHint}>Option {OPTION_LABELS[idx]}</Text>
+                      {isCorrect && <Text style={styles.correctLabel}>Correct</Text>}
+                    </Pressable>
 
-          <Text style={styles.label}>Options (Hindi) — optional, fill all four or leave blank</Text>
-          {optionsHindi.map((opt, idx) => (
-            <View key={idx} style={styles.optionRow}>
-              <Text style={styles.optionLetter}>{OPTION_LABELS[idx]}</Text>
-              <TextInput
-                style={styles.optionInput}
-                placeholder={`विकल्प ${OPTION_LABELS[idx]}`}
-                placeholderTextColor="#9AA3B2"
-                value={opt}
-                onChangeText={(v) =>
-                  setOptionsHindi((prev) => prev.map((o, i) => (i === idx ? v : o)))
-                }
-              />
-            </View>
-          ))}
+                    <View style={styles.questionActions}>
+                      <Pressable
+                        style={styles.chip}
+                        onPress={() =>
+                          setShowOptionImagePicker((prev) =>
+                            prev.map((v, i) => (i === idx ? !v : v))
+                          )
+                        }
+                      >
+                        <Ionicons name="image-outline" size={14} color={NAVY} />
+                        <Text style={styles.chipText}>
+                          {optionImages[idx] ? 'Change Image' : '+ Add Image'}
+                        </Text>
+                      </Pressable>
+                    </View>
 
-          <Text style={styles.label}>Explanation / Solution</Text>
+                    {showOptionImagePicker[idx] && (
+                      <View style={{ marginTop: 10 }}>
+                        <ImagePickerBox
+                          token={token}
+                          label={`Option ${OPTION_LABELS[idx]} Image`}
+                          value={optionImages[idx]}
+                          onChange={(url) =>
+                            setOptionImages((prev) => prev.map((img, i) => (i === idx ? url : img)))
+                          }
+                          aspectRatio={16 / 9}
+                        />
+                      </View>
+                    )}
+                  </View>
+                );
+              })}
+
+          <Text style={styles.label}>Explanation / Solution (text, image, or both)</Text>
           <View style={styles.explanationBox}>
             <TextInput
               style={styles.explanationInput}
-              placeholder="Explain the correct answer..."
+              placeholder="Explain the correct answer... (optional if you add an image)"
               placeholderTextColor="#9AA3B2"
               value={explanation}
               onChangeText={setExplanation}
               multiline
             />
-          </View>
-
-          <Text style={styles.label}>Explanation / Solution (Hindi) — optional</Text>
-          <View style={styles.explanationBox}>
-            <TextInput
-              style={styles.explanationInput}
-              placeholder="सही उत्तर की व्याख्या हिंदी में..."
-              placeholderTextColor="#9AA3B2"
-              value={explanationHindi}
-              onChangeText={setExplanationHindi}
-              multiline
-            />
+            <View style={styles.questionActions}>
+              <Pressable
+                style={styles.chip}
+                onPress={() => setShowExplanationImagePicker((s) => !s)}
+              >
+                <Ionicons name="image-outline" size={14} color={NAVY} />
+                <Text style={styles.chipText}>
+                  {explanationImage ? 'Change Image' : '+ Add Image'}
+                </Text>
+              </Pressable>
+            </View>
+            {showExplanationImagePicker && (
+              <View style={{ marginTop: 10 }}>
+                <ImagePickerBox
+                  token={token}
+                  label="Explanation Image"
+                  value={explanationImage}
+                  onChange={setExplanationImage}
+                  aspectRatio={16 / 9}
+                />
+              </View>
+            )}
           </View>
 
           <View style={styles.row}>
@@ -415,6 +498,26 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   chipText: { fontSize: 11.5, fontWeight: '700', color: NAVY },
+  optionsHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+    marginTop: 4,
+  },
+  optionsHeaderLabel: { fontSize: 12.5, fontWeight: '700', color: NAVY },
+  optionTabGroup: { flexDirection: 'row', gap: 6 },
+  optionTab: {
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#D9D6CC',
+    backgroundColor: '#FFFFFF',
+  },
+  optionTabActive: { backgroundColor: NAVY, borderColor: NAVY },
+  optionTabText: { fontSize: 11, fontWeight: '700', color: MUTED },
+  optionTabTextActive: { color: '#FFFFFF' },
   optionRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -426,6 +529,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     height: 50,
     marginBottom: 10,
+  },
+  optionImageCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: '#E7E5DE',
+    padding: 14,
+    marginBottom: 10,
+  },
+  optionRadioTapZone: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  optionImageHint: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '700',
+    color: NAVY,
   },
   optionRowCorrect: { borderColor: '#2E9E5B', backgroundColor: '#F1FAF4' },
   optionLetter: { fontSize: 13, fontWeight: '800', color: NAVY, width: 16 },
