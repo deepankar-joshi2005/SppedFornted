@@ -3,7 +3,7 @@ export type TabKey = 'home' | 'tests' | 'pyps' | 'ebook' | 'results' | 'profile'
 export type Route =
   | { name: 'tab'; tab: TabKey }
   | { name: 'categories' }
-  | { name: 'testList'; category?: string; seriesId?: string }
+  | { name: 'testList'; category?: string; seriesId?: string; seriesIcon?: string }
   | { name: 'testInstructions'; testId: string }
   | { name: 'testTaking'; attemptId: string; testId: string; language?: 'Hindi' | 'English' }
   | { name: 'testResult'; attemptId: string }

@@ -22,12 +22,13 @@ import {
 } from '../services/purchases.service';
 import { getSectionalSeriesTests } from '../services/sectional.service';
 import { getTestsByCategory, TestListItem, TestListResponse } from '../services/tests.service';
-import { ERROR, GOLD, MUTED, NAVY } from '../theme/colors';
+import { ERROR, MUTED, NAVY } from '../theme/colors';
 
 type Props = {
   token: string;
   category?: string;
   seriesId?: string;
+  seriesIcon?: string;
   nav: Nav;
 };
 
@@ -41,7 +42,7 @@ const filterMatches = (filter: Filter, status: TestListItem['status']): boolean 
   return status === 'completed';
 };
 
-export default function TestListScreen({ token, category, seriesId, nav }: Props) {
+export default function TestListScreen({ token, category, seriesId, seriesIcon, nav }: Props) {
   const [seriesData, setSeriesData] = useState<TestListResponse | null>(null);
   const [seriesTitle, setSeriesTitle] = useState('');
   const [bannerImage, setBannerImage] = useState<string | null>(null);
@@ -50,6 +51,9 @@ export default function TestListScreen({ token, category, seriesId, nav }: Props
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
+
+  // Info Modal ("How it works")
+  const [howItWorksVisible, setHowItWorksVisible] = useState(false);
 
   // Purchase Modal State
   const [buyModalVisible, setBuyModalVisible] = useState(false);
@@ -90,7 +94,6 @@ export default function TestListScreen({ token, category, seriesId, nav }: Props
     setBuying(true);
     setBuyError('');
     try {
-      // Create Razorpay Order
       const order = await createRazorpayOrder(token, seriesData.seriesId);
       setRazorpayOrder(order);
       setBuyModalVisible(false);
@@ -117,7 +120,7 @@ export default function TestListScreen({ token, category, seriesId, nav }: Props
         razorpay_signature: data.razorpay_signature,
         testSeriesId: seriesData.seriesId,
       });
-      load(true); // reload list with unlocked series
+      load(true);
     } catch (err) {
       setError('Payment verification failed. Please contact support if amount was deducted.');
     } finally {
@@ -130,12 +133,14 @@ export default function TestListScreen({ token, category, seriesId, nav }: Props
       setBuyModalVisible(true);
       return;
     }
+    if (test.status === 'completed') {
+      handleViewResult(test);
+      return;
+    }
     if (test.status === 'in-progress' && test.attemptId) {
-      // Resume: go directly to test taking
       nav.push({ name: 'testTaking', attemptId: test.attemptId, testId: test.id });
       return;
     }
-    // New / Reattempt: go through pre-test flow (Language → Instructions → Symbols)
     nav.push({ name: 'testInstructions', testId: test.id });
   };
 
@@ -145,48 +150,52 @@ export default function TestListScreen({ token, category, seriesId, nav }: Props
 
   const filteredTests = tests?.filter((t) => filterMatches(filter, t.status)) ?? [];
 
+  const streakDays = seriesData?.userStats?.streakDays ?? 0;
+  const mocksTaken = seriesData?.userStats?.mocksTaken ?? (tests?.filter((t) => t.status === 'completed').length || 1);
+  const totalAttempts = seriesData?.userStats?.totalAttempts ?? (tests?.filter((t) => t.status === 'completed').length || 1);
+
+  // seriesIcon arrives as a full URL (already resolved in TestsScreen)
+  // categoryIcon / bannerImage are raw server paths — resolve them here
+  const categoryLogo = seriesIcon
+    || (seriesData?.categoryIcon ? resolveAssetUrl(seriesData.categoryIcon) : null)
+    || (seriesData?.bannerImage ? resolveAssetUrl(seriesData.bannerImage) : null)
+    || null;
+
   return (
     <SafeAreaView style={styles.root} edges={['top']}>
+      {/* Header Row matching screenshot */}
       <View style={styles.headerRow}>
         <Pressable style={styles.iconBtn} onPress={nav.pop} hitSlop={8}>
-          <Ionicons name="chevron-back" size={22} color={NAVY} />
+          <Ionicons name="chevron-back" size={22} color="#1E1E1E" />
         </Pressable>
+
+        {/* Category Logo Badge in Header */}
+        <View style={styles.headerLogoWrap}>
+          {categoryLogo ? (
+            <Image
+              source={{ uri: categoryLogo }}
+              style={styles.headerLogoImg}
+              resizeMode="cover"
+            />
+          ) : (
+            <Text style={styles.headerLogoFallback}>
+              {(category || seriesTitle || 'B').charAt(0).toUpperCase()}
+            </Text>
+          )}
+        </View>
+
         <Text style={styles.headerTitle} numberOfLines={1}>
-          {seriesTitle || (category ? `${category} Mock Tests` : 'Mock Tests')}
+          {seriesTitle || (category ? `${category} Mocks` : 'Mock Tests')}
         </Text>
+
         <Pressable
           style={styles.iconBtn}
           hitSlop={8}
           onPress={() => nav.push({ name: 'notifications' })}
         >
-          <Ionicons name="notifications-outline" size={20} color={NAVY} />
+          <Ionicons name="notifications-outline" size={20} color="#1E1E1E" />
         </Pressable>
       </View>
-
-      {!!bannerImage?.trim() && (
-        <Image
-          source={{ uri: resolveAssetUrl(bannerImage) }}
-          style={styles.banner}
-          resizeMode="cover"
-        />
-      )}
-
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.filterScroll}
-        contentContainerStyle={styles.filterRow}
-      >
-        {FILTERS.map((f) => (
-          <Pressable
-            key={f}
-            style={[styles.filterPill, filter === f && styles.filterPillActive]}
-            onPress={() => setFilter(f)}
-          >
-            <Text style={[styles.filterText, filter === f && styles.filterTextActive]}>{f}</Text>
-          </Pressable>
-        ))}
-      </ScrollView>
 
       <ScrollView
         style={styles.mainScroll}
@@ -195,6 +204,73 @@ export default function TestListScreen({ token, category, seriesId, nav }: Props
           <RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={NAVY} />
         }
       >
+        {!!bannerImage?.trim() && (
+          <Image
+            source={{ uri: resolveAssetUrl(bannerImage) }}
+            style={styles.banner}
+            resizeMode="cover"
+          />
+        )}
+
+        {/* Top Stats Banner Card matching screenshot exactly */}
+        <View style={styles.statsCard}>
+          <View style={styles.statCol}>
+            <Text style={styles.statEmoji}>🔥</Text>
+            <Text style={styles.statValue}>{streakDays}</Text>
+            <Text style={styles.statLabel}>day streak</Text>
+          </View>
+
+          <View style={styles.statDivider} />
+
+          <View style={styles.statCol}>
+            <Text style={styles.statEmoji}>📝</Text>
+            <Text style={styles.statValue}>{mocksTaken}</Text>
+            <Text style={styles.statLabel}>mock taken</Text>
+          </View>
+
+          <View style={styles.statDivider} />
+
+          <View style={styles.statCol}>
+            <Text style={styles.statEmoji}>🎯</Text>
+            <Text style={styles.statValue}>{totalAttempts}</Text>
+            <Text style={styles.statLabel}>attempts</Text>
+          </View>
+        </View>
+
+        {/* Section Header Row */}
+        <View style={styles.sectionHeaderRow}>
+          <View style={styles.sectionTitleWrap}>
+            <Text style={styles.sectionTitle}>Editorial Mocks</Text>
+            <Text style={styles.sectionCount}>{tests?.length ?? 0}</Text>
+          </View>
+          <Pressable
+            style={styles.howItWorksBtn}
+            onPress={() => setHowItWorksVisible(true)}
+            hitSlop={8}
+          >
+            <Ionicons name="information-circle-outline" size={16} color="#64748B" />
+            <Text style={styles.howItWorksText}>How it works</Text>
+          </Pressable>
+        </View>
+
+        {/* Filter Pills */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.filterScroll}
+          contentContainerStyle={styles.filterRow}
+        >
+          {FILTERS.map((f) => (
+            <Pressable
+              key={f}
+              style={[styles.filterPill, filter === f && styles.filterPillActive]}
+              onPress={() => setFilter(f)}
+            >
+              <Text style={[styles.filterText, filter === f && styles.filterTextActive]}>{f}</Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+
         {loading && !tests && (
           <View style={styles.loadingBox}>
             <ActivityIndicator color={NAVY} size="large" />
@@ -207,71 +283,143 @@ export default function TestListScreen({ token, category, seriesId, nav }: Props
           </View>
         )}
 
-        {filteredTests.map((test) => (
-          <View style={[styles.card, test.isLocked && { opacity: 0.9 }]} key={test.id}>
-            <View style={styles.cardTopRow}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
-                {test.isLocked ? (
-                  <Ionicons name="lock-closed" size={16} color="#92400E" />
-                ) : test.isFreeDemo ? (
-                  <View style={styles.demoBadge}>
-                    <Text style={styles.demoBadgeText}>FREE DEMO</Text>
-                  </View>
-                ) : null}
-                <Text style={styles.cardTitle}>{test.title}</Text>
-              </View>
-              <StatusBadge status={test.status} isLocked={test.isLocked} />
-            </View>
-            <Text style={styles.metaText}>
-              {test.totalQuestions} Questions • {test.durationMinutes} Minutes •{' '}
-              {test.totalMarks} Marks
-            </Text>
-            <View style={styles.divider} />
-            <View style={styles.cardBottomRow}>
-              <Text style={styles.difficultyText}>
-                Difficulty: <Text style={styles.difficultyValue}>{test.difficulty}</Text>
-              </Text>
-              {test.isLocked ? (
-                <Pressable
-                  style={[styles.primaryBtn, { backgroundColor: '#92400E' }]}
-                  onPress={() => setBuyModalVisible(true)}
-                >
-                  <Ionicons name="lock-closed-outline" size={14} color="#FFF" style={{ marginRight: 4 }} />
-                  <Text style={styles.primaryBtnText}>Unlock Test Series</Text>
-                </Pressable>
-              ) : test.status === 'completed' ? (
-                <View style={styles.completedActions}>
-                  <Text style={styles.scoreText}>
-                    Score: {test.score}/{test.totalMarks}
-                  </Text>
-                  <View style={styles.completedBtnRow}>
-                    <Pressable style={styles.outlineBtn} onPress={() => handleViewResult(test)}>
-                      <Text style={styles.outlineBtnText}>View Result</Text>
-                    </Pressable>
-                    {test.canReattempt && (
-                      <Pressable
-                        style={styles.primaryBtnSmall}
-                        onPress={() => handleStartOrResume(test)}
-                      >
-                        <Text style={styles.primaryBtnSmallText}>Reattempt</Text>
-                      </Pressable>
+        {/* Mocks Cards List matching screenshot design */}
+        {filteredTests.map((test, index) => {
+          const catStr = (category || seriesTitle || '').toLowerCase();
+          return (
+            <Pressable
+              key={test.id}
+              style={[styles.card, test.isLocked && { opacity: 0.95 }]}
+              onPress={() => handleStartOrResume(test)}
+            >
+              {/* Left Badge: Category / Series Logo Image */}
+              <View style={styles.cardLogoBadge}>
+                {categoryLogo ? (
+                  <Image
+                    source={{ uri: categoryLogo }}
+                    style={styles.cardLogoImg}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <View style={styles.cardLogoFallback}>
+                    {catStr.includes('agniveer') || catStr.includes('defence') || catStr.includes('army') ? (
+                      <Ionicons name="shield" size={24} color="#1E1E1E" />
+                    ) : catStr.includes('railway') || catStr.includes('rrb') ? (
+                      <Ionicons name="train" size={24} color="#1E1E1E" />
+                    ) : catStr.includes('bank') || catStr.includes('po') ? (
+                      <Ionicons name="business" size={24} color="#1E1E1E" />
+                    ) : catStr.includes('police') || catStr.includes('si') ? (
+                      <Ionicons name="shield-checkmark" size={24} color="#1E1E1E" />
+                    ) : catStr.includes('ssc') || catStr.includes('cgl') ? (
+                      <Ionicons name="school" size={24} color="#1E1E1E" />
+                    ) : (
+                      <Ionicons name="ribbon" size={24} color="#1E1E1E" />
                     )}
                   </View>
-                </View>
-              ) : (
-                <Pressable
-                  style={styles.primaryBtn}
-                  onPress={() => handleStartOrResume(test)}
-                >
-                  <Text style={styles.primaryBtnText}>
-                    {test.status === 'in-progress' ? 'Resume Test' : 'Start Test'}
+                )}
+              </View>
+
+              {/* Middle Info Column */}
+              <View style={styles.cardMiddleContent}>
+                <View style={styles.cardTitleRow}>
+                  <Text style={styles.cardTitle} numberOfLines={1}>
+                    {test.title}
                   </Text>
-                </Pressable>
-              )}
-            </View>
-          </View>
-        ))}
+                </View>
+
+                <Text style={styles.cardSubText}>
+                  {test.totalQuestions} Questions • {test.durationMinutes} mins
+                </Text>
+
+                {test.status === 'completed' && (
+                  <View style={styles.completedInfoRow}>
+                    <Text style={styles.yourBestText}>
+                      Your best {test.score !== null ? test.score : 0}
+                    </Text>
+                  </View>
+                )}
+              </View>
+
+              {/* Right Action Button Pill */}
+              <View style={styles.cardRightAction}>
+                {test.isLocked ? (
+                  <View style={[styles.actionPill, styles.actionPillLocked]}>
+                    <Text style={styles.actionPillTextLocked}>Locked 🔒</Text>
+                    <Ionicons name="chevron-down" size={14} color="#92400E" />
+                  </View>
+                ) : test.status === 'completed' ? (
+                  <View style={[styles.actionPill, styles.actionPillDone]}>
+                    <Ionicons name="checkmark-circle" size={14} color="#166534" />
+                    <Text style={styles.actionPillTextDone}>Done</Text>
+                    <Ionicons name="chevron-down" size={14} color="#166534" />
+                  </View>
+                ) : test.status === 'in-progress' ? (
+                  <View style={[styles.actionPill, styles.actionPillOpen]}>
+                    <Text style={styles.actionPillTextOpen}>Open</Text>
+                    <Ionicons name="chevron-down" size={14} color="#1E1E1E" />
+                  </View>
+                ) : (
+                  <View style={[styles.actionPill, styles.actionPillOpen]}>
+                    <Text style={styles.actionPillTextOpen}>New</Text>
+                    <Ionicons name="chevron-down" size={14} color="#1E1E1E" />
+                  </View>
+                )}
+              </View>
+            </Pressable>
+          );
+        })}
       </ScrollView>
+
+      {/* How It Works Modal */}
+      <Modal visible={howItWorksVisible} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.infoModalCard}>
+            <View style={styles.infoModalHeader}>
+              <Text style={styles.infoModalTitle}>How Editorial Mocks Work</Text>
+              <Pressable onPress={() => setHowItWorksVisible(false)} hitSlop={8}>
+                <Ionicons name="close" size={22} color="#1E1E1E" />
+              </Pressable>
+            </View>
+
+            <View style={styles.infoStepRow}>
+              <Text style={styles.infoStepIcon}>🔥</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.infoStepTitle}>Day Streak</Text>
+                <Text style={styles.infoStepDesc}>
+                  Attempt mock tests daily to keep your daily learning streak alive!
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.infoStepRow}>
+              <Text style={styles.infoStepIcon}>📝</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.infoStepTitle}>Mock Taken</Text>
+                <Text style={styles.infoStepDesc}>
+                  Count of distinct mock test papers you have completed in this series.
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.infoStepRow}>
+              <Text style={styles.infoStepIcon}>🎯</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.infoStepTitle}>Total Attempts</Text>
+                <Text style={styles.infoStepDesc}>
+                  Total number of test attempts submitted including reattempts.
+                </Text>
+              </View>
+            </View>
+
+            <Pressable
+              style={styles.infoCloseBtn}
+              onPress={() => setHowItWorksVisible(false)}
+            >
+              <Text style={styles.infoCloseBtnText}>Got It</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
 
       {/* Purchase Modal */}
       <Modal visible={buyModalVisible} transparent animationType="fade">
@@ -339,47 +487,19 @@ export default function TestListScreen({ token, category, seriesId, nav }: Props
   );
 }
 
-function StatusBadge({ status, isLocked }: { status: TestListItem['status']; isLocked?: boolean }) {
-  if (isLocked) {
-    return (
-      <View style={[styles.badge, { backgroundColor: '#FEF3C7' }]}>
-        <Text style={[styles.badgeText, { color: '#92400E' }]}>Locked 🔒</Text>
-      </View>
-    );
-  }
-  if (status === 'completed') {
-    return (
-      <View style={[styles.badge, styles.badgeCompleted]}>
-        <Text style={[styles.badgeText, styles.badgeTextCompleted]}>Attempted</Text>
-      </View>
-    );
-  }
-  if (status === 'in-progress') {
-    return (
-      <View style={[styles.badge, styles.badgeProgress]}>
-        <Text style={[styles.badgeText, styles.badgeTextProgress]}>In Progress</Text>
-      </View>
-    );
-  }
-  return (
-    <View style={[styles.badge, styles.badgeNew]}>
-      <Text style={[styles.badgeText, styles.badgeTextNew]}>Not Attempted</Text>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#F5F4EF',
+    backgroundColor: '#FAF6F0',
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 10,
-    paddingTop: 10,
-    paddingBottom: 8,
+    paddingHorizontal: 12,
+    paddingTop: 8,
+    paddingBottom: 10,
+    gap: 10,
+    backgroundColor: '#FAF6F0',
   },
   iconBtn: {
     width: 36,
@@ -387,12 +507,29 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  headerLogoWrap: {
+    width: 30,
+    height: 30,
+    borderRadius: 7,
+    backgroundColor: '#1E1E1E',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  headerLogoImg: {
+    width: 24,
+    height: 24,
+  },
+  headerLogoFallback: {
+    color: '#FDE68A',
+    fontWeight: '800',
+    fontSize: 15,
+  },
   headerTitle: {
     flex: 1,
-    textAlign: 'center',
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '800',
-    color: NAVY,
+    color: '#1E1E1E',
   },
   banner: {
     width: '100%',
@@ -400,54 +537,119 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     backgroundColor: '#EEF1F7',
   },
-  filterScroll: {
-    flexGrow: 0,
-    flexShrink: 0,
-    height: 52,
-  },
-  filterRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: 18,
-    paddingVertical: 8,
-  },
-  filterPill: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 18,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#EDEBE4',
-  },
-  filterPillActive: {
-    backgroundColor: NAVY,
-    borderColor: NAVY,
-  },
-  filterText: {
-    fontSize: 12.5,
-    fontWeight: '600',
-    color: NAVY,
-  },
-  filterTextActive: {
-    color: '#FFFFFF',
-  },
   mainScroll: {
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 18,
-    paddingTop: 4,
-    paddingBottom: 24,
-    gap: 14,
+    paddingBottom: 30,
+  },
+  statsCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFDF6',
+    borderWidth: 1.2,
+    borderColor: '#F0D688',
+    borderRadius: 18,
+    marginHorizontal: 16,
+    marginTop: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 10,
+  },
+  statCol: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  statEmoji: {
+    fontSize: 18,
+    marginBottom: 2,
+  },
+  statValue: {
+    fontSize: 19,
+    fontWeight: '800',
+    color: '#1E1E1E',
+  },
+  statLabel: {
+    fontSize: 11,
+    color: '#78716C',
+    marginTop: 2,
+  },
+  statDivider: {
+    width: 1,
+    height: 32,
+    backgroundColor: '#EFE9D8',
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginHorizontal: 16,
+    marginTop: 18,
+    marginBottom: 10,
+  },
+  sectionTitleWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#1E1E1E',
+  },
+  sectionCount: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#78716C',
+  },
+  howItWorksBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  howItWorksText: {
+    fontSize: 12,
+    color: '#64748B',
+    fontWeight: '600',
+  },
+  filterScroll: {
+    flexGrow: 0,
+    marginBottom: 12,
+  },
+  filterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 16,
+  },
+  filterPill: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  filterPillActive: {
+    backgroundColor: '#1E1E1E',
+    borderColor: '#1E1E1E',
+  },
+  filterText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  filterTextActive: {
+    color: '#FFFFFF',
   },
   loadingBox: {
     paddingVertical: 40,
     alignItems: 'center',
   },
   errorBox: {
-    marginTop: 20,
-    padding: 16,
+    marginHorizontal: 16,
+    marginTop: 10,
+    padding: 14,
     borderRadius: 12,
     backgroundColor: '#FBEAE8',
     alignItems: 'center',
@@ -459,123 +661,116 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#EDEBE4',
-  },
-  cardTopRow: {
+    borderRadius: 18,
+    borderWidth: 1.5,
+    borderColor: '#1E1E1E',
+    marginHorizontal: 16,
+    marginBottom: 12,
+    padding: 13,
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: 8,
+    alignItems: 'center',
+  },
+  cardLogoBadge: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#EFF6FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+    borderWidth: 1.5,
+    borderColor: '#BFDBFE',
+    overflow: 'hidden',
+  },
+  cardLogoImg: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+  },
+  cardLogoFallback: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cardLogoFallbackText: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: NAVY,
+  },
+  cardMiddleContent: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  cardTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   cardTitle: {
-    flex: 1,
-    fontSize: 15,
+    fontSize: 14.5,
     fontWeight: '800',
-    color: NAVY,
+    color: '#1E1E1E',
   },
-  badge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 10,
+  cardSubText: {
+    fontSize: 11.5,
+    color: '#78716C',
+    marginTop: 2,
   },
-  badgeNew: { backgroundColor: '#FDF1DC' },
-  badgeProgress: { backgroundColor: '#E9F0FB' },
-  badgeCompleted: { backgroundColor: '#E4F5EA' },
-  badgeText: {
-    fontSize: 10.5,
-    fontWeight: '700',
-  },
-  badgeTextNew: { color: '#B4790C' },
-  badgeTextProgress: { color: NAVY },
-  badgeTextCompleted: { color: '#2E9E5B' },
-  metaText: {
-    fontSize: 12,
-    color: MUTED,
-    marginTop: 8,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: '#EDEBE4',
-    marginTop: 12,
-    marginBottom: 12,
-  },
-  cardBottomRow: {
+  attemptedRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    gap: 4,
+    marginTop: 4,
   },
-  difficultyText: {
-    fontSize: 12.5,
-    color: MUTED,
+  attemptedText: {
+    fontSize: 11.5,
+    color: '#64748B',
+    fontWeight: '500',
   },
-  difficultyValue: {
+  completedInfoRow: {
+    marginTop: 4,
+  },
+  yourBestText: {
+    fontSize: 11.5,
     fontWeight: '700',
-    color: NAVY,
-  },
-  primaryBtn: {
-    backgroundColor: NAVY,
-    borderRadius: 20,
-    paddingHorizontal: 18,
-    paddingVertical: 9,
-    minWidth: 96,
-    alignItems: 'center',
-  },
-  primaryBtnText: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-    fontSize: 12.5,
-  },
-  completedActions: {
-    alignItems: 'flex-end',
-    gap: 6,
-  },
-  scoreText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: NAVY,
-  },
-  completedBtnRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  outlineBtn: {
-    borderWidth: 1.3,
-    borderColor: NAVY,
-    borderRadius: 18,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-  },
-  outlineBtnText: {
-    color: NAVY,
-    fontWeight: '700',
-    fontSize: 12,
-  },
-  primaryBtnSmall: {
-    backgroundColor: GOLD,
-    borderRadius: 18,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    minWidth: 84,
-    alignItems: 'center',
-  },
-  primaryBtnSmallText: {
-    color: NAVY,
-    fontWeight: '700',
-    fontSize: 12,
-  },
-  demoBadge: {
-    backgroundColor: '#DCFCE7',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  demoBadgeText: {
-    fontSize: 10,
-    fontWeight: '800',
     color: '#166534',
+  },
+  cardRightAction: {
+    marginLeft: 8,
+  },
+  actionPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 14,
+    borderWidth: 1.2,
+  },
+  actionPillOpen: {
+    backgroundColor: '#FEF3C7',
+    borderColor: '#1E1E1E',
+  },
+  actionPillTextOpen: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#1E1E1E',
+  },
+  actionPillDone: {
+    backgroundColor: '#DCFCE7',
+    borderColor: '#166534',
+  },
+  actionPillTextDone: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#166534',
+  },
+  actionPillLocked: {
+    backgroundColor: '#FEF3C7',
+    borderColor: '#92400E',
+  },
+  actionPillTextLocked: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#92400E',
   },
   modalOverlay: {
     flex: 1,
@@ -583,6 +778,57 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
+  },
+  infoModalCard: {
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 20,
+    borderWidth: 1.5,
+    borderColor: '#1E1E1E',
+  },
+  infoModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  infoModalTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#1E1E1E',
+  },
+  infoStepRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    marginBottom: 14,
+  },
+  infoStepIcon: {
+    fontSize: 22,
+  },
+  infoStepTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1E1E1E',
+  },
+  infoStepDesc: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+    lineHeight: 16,
+  },
+  infoCloseBtn: {
+    backgroundColor: '#1E1E1E',
+    borderRadius: 20,
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  infoCloseBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 13,
   },
   purchaseCard: {
     width: '100%',

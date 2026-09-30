@@ -5,6 +5,7 @@ export interface EbookItem {
   id: string;
   title: string;
   category: string;
+  categoryIcon?: string | null;
   author: string;
   description: string;
   coverImage: string | null;

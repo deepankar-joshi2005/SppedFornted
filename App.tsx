@@ -273,6 +273,7 @@ export default function App() {
                 token={token}
                 category={current.category}
                 seriesId={current.seriesId}
+                seriesIcon={current.seriesIcon}
                 nav={nav}
               />
             )}

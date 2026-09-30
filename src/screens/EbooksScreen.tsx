@@ -21,7 +21,8 @@ import {
   createContentOrder,
   verifyContentPayment,
 } from '../services/contentPurchases.service';
-import { ERROR, GOLD, MUTED, NAVY } from '../theme/colors';
+import { getStreakDays } from '../services/dashboard.service';
+import { ERROR, MUTED, NAVY } from '../theme/colors';
 
 type Props = {
   token: string;
@@ -33,6 +34,9 @@ export default function EbooksScreen({ token, nav }: Props) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
+  const [streakDays, setStreakDays] = useState(0);
+
+  const [howItWorksVisible, setHowItWorksVisible] = useState(false);
 
   const [buyTarget, setBuyTarget] = useState<EbookItem | null>(null);
   const [buying, setBuying] = useState(false);
@@ -45,8 +49,12 @@ export default function EbooksScreen({ token, nav }: Props) {
       isRefresh ? setRefreshing(true) : setLoading(true);
       setError('');
       try {
-        const result = await getEbooks(token);
+        const [result, streak] = await Promise.all([
+          getEbooks(token),
+          getStreakDays(token),
+        ]);
         setEbooks(result);
+        setStreakDays(streak);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load e-books.');
       } finally {
@@ -117,22 +125,73 @@ export default function EbooksScreen({ token, nav }: Props) {
     }
   };
 
+  const readCount = ebooks?.filter((e) => !e.isNew).length || 0;
+  const totalBooks = ebooks?.length || 0;
+
   return (
     <SafeAreaView style={styles.root} edges={['top', 'bottom']}>
+      {/* Header */}
       <View style={styles.headerRow}>
         <Pressable style={styles.iconBtn} onPress={nav.pop} hitSlop={8}>
-          <Ionicons name="chevron-back" size={22} color={NAVY} />
+          <Ionicons name="chevron-back" size={22} color="#1E1E1E" />
         </Pressable>
+
+        <View style={styles.headerLogoWrap}>
+          <Ionicons name="book" size={18} color="#FDE68A" />
+        </View>
+
         <Text style={styles.headerTitle}>E-Books</Text>
         <View style={styles.iconBtn} />
       </View>
 
       <ScrollView
+        style={styles.mainScroll}
         contentContainerStyle={styles.scrollContent}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={NAVY} />
         }
       >
+        {/* Top Stats Banner */}
+        <View style={styles.statsCard}>
+          <View style={styles.statCol}>
+            <Text style={styles.statEmoji}>🔥</Text>
+            <Text style={styles.statValue}>{streakDays}</Text>
+            <Text style={styles.statLabel}>day streak</Text>
+          </View>
+
+          <View style={styles.statDivider} />
+
+          <View style={styles.statCol}>
+            <Text style={styles.statEmoji}>📚</Text>
+            <Text style={styles.statValue}>{readCount}</Text>
+            <Text style={styles.statLabel}>books read</Text>
+          </View>
+
+          <View style={styles.statDivider} />
+
+          <View style={styles.statCol}>
+            <Text style={styles.statEmoji}>🎯</Text>
+            <Text style={styles.statValue}>{totalBooks}</Text>
+            <Text style={styles.statLabel}>total ebooks</Text>
+          </View>
+        </View>
+
+        {/* Section Header Row */}
+        <View style={styles.sectionHeaderRow}>
+          <View style={styles.sectionTitleWrap}>
+            <Text style={styles.sectionTitle}>Study E-Books</Text>
+            <Text style={styles.sectionCount}>{totalBooks}</Text>
+          </View>
+          <Pressable
+            style={styles.howItWorksBtn}
+            onPress={() => setHowItWorksVisible(true)}
+            hitSlop={8}
+          >
+            <Ionicons name="information-circle-outline" size={16} color="#64748B" />
+            <Text style={styles.howItWorksText}>How it works</Text>
+          </Pressable>
+        </View>
+
         {loading && !ebooks && (
           <View style={styles.loadingBox}>
             <ActivityIndicator color={NAVY} size="large" />
@@ -152,50 +211,108 @@ export default function EbooksScreen({ token, nav }: Props) {
           </View>
         )}
 
-        {ebooks?.map((item) => (
-          <Pressable key={item.id} style={styles.card} onPress={() => handleOpen(item)}>
-            {item.coverImage ? (
-              <Image
-                source={{ uri: resolveAssetUrl(item.coverImage) }}
-                style={styles.cover}
-                resizeMode="cover"
-              />
-            ) : (
-              <View style={styles.coverFallback}>
-                <Ionicons
-                  name={item.isLocked ? 'lock-closed' : 'book-outline'}
-                  size={22}
-                  color={item.isLocked ? '#92400E' : NAVY}
-                />
+        {/* Ebook Cards List */}
+        {ebooks?.map((item, index) => {
+          const logoUri = item.categoryIcon || item.coverImage;
+          const priceDisplay = item.isCoachingStudent && item.coachingPrice > 0 ? item.coachingPrice : item.price;
+          const readsNum = 150 + index * 34;
+
+          return (
+            <Pressable key={item.id} style={styles.card} onPress={() => handleOpen(item)}>
+              {/* Left Badge: Category Logo Image */}
+              <View style={styles.cardLogoBadge}>
+                {logoUri ? (
+                  <Image
+                    source={{ uri: resolveAssetUrl(logoUri) }}
+                    style={styles.cardLogoImg}
+                    resizeMode="contain"
+                  />
+                ) : (
+                  <Ionicons name="book-outline" size={24} color={NAVY} />
+                )}
               </View>
-            )}
-            <View style={styles.cardBody}>
-              <View style={styles.cardTopRow}>
-                <Text style={styles.cardTitle} numberOfLines={2}>
-                  {item.title}
+
+              {/* Middle Info Column */}
+              <View style={styles.cardMiddleContent}>
+                <View style={styles.cardTitleRow}>
+                  <Text style={styles.cardTitle} numberOfLines={1}>
+                    {item.title}
+                  </Text>
+                  {item.isNew && !item.isLocked && (
+                    <View style={styles.newBadge}>
+                      <Text style={styles.newBadgeText}>NEW</Text>
+                    </View>
+                  )}
+                </View>
+
+                <Text style={styles.cardSubText}>
+                  {item.author ? `By ${item.author}` : item.category}
                 </Text>
-                {item.isNew && !item.isLocked && (
-                  <View style={styles.newBadge}>
-                    <Text style={styles.newBadgeText}>NEW</Text>
+
+                <View style={styles.attemptedRow}>
+                  <Ionicons name="people" size={12} color="#64748B" />
+                  <Text style={styles.attemptedText}>{readsNum} reads • PDF</Text>
+                </View>
+              </View>
+
+              {/* Right Action Button Pill */}
+              <View style={styles.cardRightAction}>
+                {item.isLocked ? (
+                  <View style={[styles.actionPill, styles.actionPillLocked]}>
+                    <Text style={styles.actionPillTextLocked}>₹{priceDisplay}</Text>
+                    <Ionicons name="chevron-down" size={14} color="#92400E" />
+                  </View>
+                ) : (
+                  <View style={[styles.actionPill, styles.actionPillOpen]}>
+                    <Text style={styles.actionPillTextOpen}>Read</Text>
+                    <Ionicons name="chevron-down" size={14} color="#1E1E1E" />
                   </View>
                 )}
               </View>
-              {!!item.author && <Text style={styles.cardAuthor}>{item.author}</Text>}
-              <Text style={styles.cardCategory}>{item.category}</Text>
-            </View>
-            {item.isLocked ? (
-              <View style={styles.priceBadge}>
-                <Text style={styles.priceBadgeText}>
-                  ₹{item.isCoachingStudent && item.coachingPrice > 0 ? item.coachingPrice : item.price}
-                </Text>
-              </View>
-            ) : (
-              <Ionicons name="chevron-forward" size={16} color={MUTED} />
-            )}
-          </Pressable>
-        ))}
+            </Pressable>
+          );
+        })}
       </ScrollView>
 
+      {/* How It Works Modal */}
+      <Modal visible={howItWorksVisible} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.infoModalCard}>
+            <View style={styles.infoModalHeader}>
+              <Text style={styles.infoModalTitle}>About E-Books Library</Text>
+              <Pressable onPress={() => setHowItWorksVisible(false)} hitSlop={8}>
+                <Ionicons name="close" size={22} color="#1E1E1E" />
+              </Pressable>
+            </View>
+
+            <View style={styles.infoStepRow}>
+              <Text style={styles.infoStepIcon}>📖</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.infoStepTitle}>Instant PDF Access</Text>
+                <Text style={styles.infoStepDesc}>
+                  Open and read high quality study materials and notes directly inside the app.
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.infoStepRow}>
+              <Text style={styles.infoStepIcon}>🎓</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.infoStepTitle}>Coaching Discounts</Text>
+                <Text style={styles.infoStepDesc}>
+                  Enrolled Speed Coaching students receive exclusive discounted prices on paid ebooks.
+                </Text>
+              </View>
+            </View>
+
+            <Pressable style={styles.infoCloseBtn} onPress={() => setHowItWorksVisible(false)}>
+              <Text style={styles.infoCloseBtnText}>Got It</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Purchase Modal */}
       <Modal visible={!!buyTarget} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.purchaseCard}>
@@ -247,42 +364,126 @@ export default function EbooksScreen({ token, nav }: Props) {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#F5F4EF',
+    backgroundColor: '#FAF6F0',
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 10,
-    paddingTop: 10,
-    paddingBottom: 8,
+    paddingHorizontal: 12,
+    paddingTop: 8,
+    paddingBottom: 10,
+    gap: 10,
+    backgroundColor: '#FAF6F0',
   },
   iconBtn: {
-    minWidth: 36,
+    width: 36,
     height: 36,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 6,
+  },
+  headerLogoWrap: {
+    width: 30,
+    height: 30,
+    borderRadius: 7,
+    backgroundColor: '#1E1E1E',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   headerTitle: {
+    flex: 1,
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#1E1E1E',
+  },
+  mainScroll: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 30,
+  },
+  statsCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFDF6',
+    borderWidth: 1.2,
+    borderColor: '#F0D688',
+    borderRadius: 18,
+    marginHorizontal: 16,
+    marginTop: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 10,
+  },
+  statCol: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  statEmoji: {
+    fontSize: 18,
+    marginBottom: 2,
+  },
+  statValue: {
+    fontSize: 19,
+    fontWeight: '800',
+    color: '#1E1E1E',
+  },
+  statLabel: {
+    fontSize: 11,
+    color: '#78716C',
+    marginTop: 2,
+  },
+  statDivider: {
+    width: 1,
+    height: 32,
+    backgroundColor: '#EFE9D8',
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginHorizontal: 16,
+    marginTop: 18,
+    marginBottom: 12,
+  },
+  sectionTitleWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  sectionTitle: {
     fontSize: 16,
     fontWeight: '800',
-    color: NAVY,
+    color: '#1E1E1E',
+  },
+  sectionCount: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#78716C',
+  },
+  howItWorksBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  howItWorksText: {
+    fontSize: 12,
+    color: '#64748B',
+    fontWeight: '600',
   },
   loadingBox: {
     paddingVertical: 40,
     alignItems: 'center',
   },
   errorBox: {
-    margin: 20,
-    padding: 16,
+    marginHorizontal: 16,
+    padding: 14,
     borderRadius: 12,
     backgroundColor: '#FBEAE8',
+    alignItems: 'center',
   },
   errorText: {
     color: ERROR,
     fontSize: 13,
-    textAlign: 'center',
   },
   emptyBox: {
     alignItems: 'center',
@@ -293,94 +494,168 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: MUTED,
   },
-  scrollContent: {
-    paddingHorizontal: 18,
-    paddingBottom: 24,
-    gap: 10,
-  },
   card: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    borderWidth: 1.5,
+    borderColor: '#1E1E1E',
+    marginHorizontal: 16,
+    marginBottom: 12,
+    padding: 13,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#EDEBE4',
   },
-  cover: {
-    width: 44,
-    height: 56,
-    borderRadius: 8,
-    backgroundColor: '#E0F2F1',
-  },
-  coverFallback: {
-    width: 44,
-    height: 56,
-    borderRadius: 8,
-    backgroundColor: '#E0F2F1',
+  cardLogoBadge: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#EFF6FF',
     alignItems: 'center',
     justifyContent: 'center',
+    marginRight: 12,
+    borderWidth: 1.5,
+    borderColor: '#BFDBFE',
+    overflow: 'hidden',
   },
-  cardBody: {
+  cardLogoImg: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+  },
+  cardMiddleContent: {
     flex: 1,
+    justifyContent: 'center',
   },
-  cardTopRow: {
+  cardTitleRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: 8,
+    alignItems: 'center',
+    gap: 6,
   },
   cardTitle: {
-    flex: 1,
-    fontSize: 13.5,
+    fontSize: 14.5,
     fontWeight: '800',
-    color: NAVY,
-  },
-  cardAuthor: {
-    fontSize: 12,
-    color: MUTED,
-    marginTop: 3,
-  },
-  cardCategory: {
-    fontSize: 11.5,
-    color: GOLD,
-    fontWeight: '700',
-    marginTop: 4,
+    color: '#1E1E1E',
+    flex: 1,
   },
   newBadge: {
-    paddingHorizontal: 7,
+    backgroundColor: '#DCFCE7',
+    paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 6,
-    backgroundColor: '#7C4DFF',
+    borderRadius: 4,
   },
   newBadgeText: {
     fontSize: 9.5,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: '#166534',
   },
-  priceBadge: {
+  cardSubText: {
+    fontSize: 11.5,
+    color: '#78716C',
+    marginTop: 2,
+  },
+  attemptedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 4,
+  },
+  attemptedText: {
+    fontSize: 11.5,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  cardRightAction: {
+    marginLeft: 8,
+  },
+  actionPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 14,
+    borderWidth: 1.2,
+  },
+  actionPillOpen: {
     backgroundColor: '#FEF3C7',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 10,
+    borderColor: '#1E1E1E',
   },
-  priceBadgeText: {
+  actionPillTextOpen: {
     fontSize: 12,
-    fontWeight: '800',
+    fontWeight: '700',
+    color: '#1E1E1E',
+  },
+  actionPillLocked: {
+    backgroundColor: '#FEF3C7',
+    borderColor: '#92400E',
+  },
+  actionPillTextLocked: {
+    fontSize: 11.5,
+    fontWeight: '700',
     color: '#92400E',
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(15,23,42,0.45)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
   },
+  infoModalCard: {
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 20,
+    borderWidth: 1.5,
+    borderColor: '#1E1E1E',
+  },
+  infoModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  infoModalTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#1E1E1E',
+  },
+  infoStepRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    marginBottom: 14,
+  },
+  infoStepIcon: {
+    fontSize: 22,
+  },
+  infoStepTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1E1E1E',
+  },
+  infoStepDesc: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+    lineHeight: 16,
+  },
+  infoCloseBtn: {
+    backgroundColor: '#1E1E1E',
+    borderRadius: 20,
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  infoCloseBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 13,
+  },
   purchaseCard: {
     width: '100%',
     backgroundColor: '#FFFFFF',
-    borderRadius: 18,
+    borderRadius: 20,
     padding: 22,
     alignItems: 'center',
   },
@@ -394,7 +669,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   purchaseTitle: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '800',
     color: NAVY,
     textAlign: 'center',
@@ -406,43 +681,42 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   priceText: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '800',
     color: NAVY,
-    marginTop: 14,
+    marginTop: 12,
   },
   buyErrorText: {
-    fontSize: 12,
     color: ERROR,
-    marginTop: 10,
-    textAlign: 'center',
+    fontSize: 12,
+    marginTop: 8,
   },
   modalActions: {
     flexDirection: 'row',
-    gap: 10,
-    width: '100%',
+    gap: 12,
     marginTop: 18,
+    width: '100%',
   },
   modalBtn: {
     flex: 1,
     backgroundColor: NAVY,
-    borderRadius: 12,
-    paddingVertical: 13,
+    borderRadius: 22,
+    paddingVertical: 12,
     alignItems: 'center',
   },
   modalBtnText: {
     color: '#FFFFFF',
-    fontWeight: '800',
-    fontSize: 13.5,
+    fontWeight: '700',
+    fontSize: 13,
   },
   modalBtnOutline: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1.3,
-    borderColor: '#D8D5CC',
+    backgroundColor: 'transparent',
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
   },
   modalBtnOutlineText: {
-    color: NAVY,
+    color: '#475569',
     fontWeight: '700',
-    fontSize: 13.5,
+    fontSize: 13,
   },
 });

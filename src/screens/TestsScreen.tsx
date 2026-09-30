@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
+  Modal,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -16,7 +17,8 @@ import { resolveAssetUrl } from '../config/api';
 import { Nav } from '../navigation/types';
 import { useLanguage } from '../context/LanguageContext';
 import { getTestSeriesSummary, TestSeriesSummary } from '../services/tests.service';
-import { CARD_SHADOW, GOLD, GOLD_TINT, MUTED, NAVY, SOFT_SHADOW } from '../theme/colors';
+import { getStreakDays } from '../services/dashboard.service';
+import { ERROR, GOLD, MUTED, NAVY } from '../theme/colors';
 
 type Props = {
   token: string;
@@ -29,14 +31,21 @@ export default function TestsScreen({ token, nav }: Props) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
+  const [streakDays, setStreakDays] = useState(0);
+
+  const [howItWorksVisible, setHowItWorksVisible] = useState(false);
 
   const load = useCallback(
     async (isRefresh?: boolean) => {
       isRefresh ? setRefreshing(true) : setLoading(true);
       setError('');
       try {
-        const result = await getTestSeriesSummary(token);
+        const [result, streak] = await Promise.all([
+          getTestSeriesSummary(token),
+          getStreakDays(token),
+        ]);
         setSeries(result);
+        setStreakDays(streak);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load test series.');
       } finally {
@@ -50,24 +59,77 @@ export default function TestsScreen({ token, nav }: Props) {
     load();
   }, [load]);
 
+  const totalSeriesCount = series?.length || 0;
+  const totalMocksCount = series?.reduce((sum, s) => sum + s.totalTests, 0) || 0;
+  const totalQuestionsCount = series?.reduce((sum, s) => sum + s.totalQuestions, 0) || 0;
+
   return (
     <SafeAreaView style={styles.root} edges={['top']}>
+      {/* Header matching screenshot theme */}
       <View style={styles.headerRow}>
-        <Text style={styles.headerTitle}>{t('test_series_title', 'Test Series')}</Text>
+        <View style={styles.headerTitleWrap}>
+          <View style={styles.headerLogoWrap}>
+            <Ionicons name="sparkles" size={16} color="#FDE68A" />
+          </View>
+          <Text style={styles.headerTitle}>{t('test_series_title', 'Test Series')}</Text>
+        </View>
+
         <NotificationBell
           token={token}
-          size={22}
+          size={20}
           style={styles.bellBtn}
           onPress={() => nav.push({ name: 'notifications' })}
         />
       </View>
 
       <ScrollView
+        style={styles.mainScroll}
         contentContainerStyle={styles.scrollContent}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={NAVY} />
         }
       >
+        {/* Top Stats Banner Card */}
+        <View style={styles.statsCard}>
+          <View style={styles.statCol}>
+            <Text style={styles.statEmoji}>🔥</Text>
+            <Text style={styles.statValue}>{streakDays}</Text>
+            <Text style={styles.statLabel}>day streak</Text>
+          </View>
+
+          <View style={styles.statDivider} />
+
+          <View style={styles.statCol}>
+            <Text style={styles.statEmoji}>📝</Text>
+            <Text style={styles.statValue}>{totalSeriesCount}</Text>
+            <Text style={styles.statLabel}>test series</Text>
+          </View>
+
+          <View style={styles.statDivider} />
+
+          <View style={styles.statCol}>
+            <Text style={styles.statEmoji}>🎯</Text>
+            <Text style={styles.statValue}>{totalMocksCount}</Text>
+            <Text style={styles.statLabel}>total mocks</Text>
+          </View>
+        </View>
+
+        {/* Section Header Row */}
+        <View style={styles.sectionHeaderRow}>
+          <View style={styles.sectionTitleWrap}>
+            <Text style={styles.sectionTitle}>Available Series</Text>
+            <Text style={styles.sectionCount}>{totalSeriesCount}</Text>
+          </View>
+          <Pressable
+            style={styles.howItWorksBtn}
+            onPress={() => setHowItWorksVisible(true)}
+            hitSlop={8}
+          >
+            <Ionicons name="information-circle-outline" size={16} color="#64748B" />
+            <Text style={styles.howItWorksText}>How it works</Text>
+          </Pressable>
+        </View>
+
         {loading && !series && (
           <View style={styles.loadingBox}>
             <ActivityIndicator color={NAVY} size="large" />
@@ -77,81 +139,111 @@ export default function TestsScreen({ token, nav }: Props) {
         {!!error && !series && (
           <View style={styles.errorBox}>
             <Text style={styles.errorText}>{error}</Text>
-            <Pressable onPress={() => load()}>
+            <Pressable onPress={() => load()} style={{ marginTop: 8 }}>
               <Text style={styles.retryText}>{t('retry', 'Tap to retry')}</Text>
             </Pressable>
           </View>
         )}
 
+        {/* Test Series Cards */}
         {series?.map((item) => (
           <Pressable
             style={styles.card}
             key={item.category}
-            onPress={() => nav.push({ name: 'testList', category: item.category })}
+            onPress={() => nav.push({ name: 'testList', category: item.category, seriesIcon: item.iconImage ? resolveAssetUrl(item.iconImage) : undefined })}
           >
-            <View style={styles.cardTopRow}>
-              <View style={styles.cardTitleRow}>
-                <View style={styles.categoryIconWrap}>
-                  {item.iconImage ? (
-                    <Image
-                      source={{ uri: resolveAssetUrl(item.iconImage) }}
-                      style={styles.categoryIconImg}
-                    />
-                  ) : (
-                    <Ionicons name="reader-outline" size={16} color={NAVY} />
-                  )}
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.cardTitle}>{item.category} {t('test_series_title', 'Test Series')}</Text>
-                  {item.isPaid ? (
-                    item.isPurchased ? (
-                      <View style={[styles.priceTag, { backgroundColor: '#DCFCE7' }]}>
-                        <Ionicons name="checkmark-circle" size={12} color="#166534" />
-                        <Text style={[styles.priceTagText, { color: '#166534' }]}>Unlocked</Text>
-                      </View>
-                    ) : (
-                      <View style={[styles.priceTag, { backgroundColor: '#FEF3C7' }]}>
-                        <Ionicons name="lock-closed" size={11} color="#92400E" />
-                        <Text style={[styles.priceTagText, { color: '#92400E' }]}>
-                          ₹{item.price}
-                        </Text>
-                      </View>
-                    )
-                  ) : (
-                    <View style={[styles.priceTag, { backgroundColor: '#E0F2FE' }]}>
-                      <Text style={[styles.priceTagText, { color: '#0369A1' }]}>FREE</Text>
-                    </View>
-                  )}
-                </View>
+            <View style={styles.cardMainRow}>
+              {/* Left Badge: Category Logo Image */}
+              <View style={styles.cardLogoBadge}>
+                {item.iconImage ? (
+                  <Image
+                    source={{ uri: resolveAssetUrl(item.iconImage) }}
+                    style={styles.cardLogoImg}
+                    resizeMode="contain"
+                  />
+                ) : (
+                  <Ionicons name="school" size={24} color={NAVY} />
+                )}
               </View>
-              <Ionicons name="chevron-forward" size={18} color={NAVY} />
-            </View>
 
-            <View style={styles.metaRow}>
-              <View style={styles.metaItem}>
-                <Ionicons name="reader-outline" size={14} color={NAVY} />
-                <Text style={styles.metaText}>{item.totalTests} {t('tests_in_category', 'Tests')}</Text>
-              </View>
-              <View style={styles.metaItem}>
-                <Ionicons name="help-circle-outline" size={14} color={NAVY} />
-                <Text style={styles.metaText}>{item.totalQuestions} {t('questions', 'Qs')}</Text>
-              </View>
-              <View style={styles.metaItem}>
-                <Ionicons name="time-outline" size={14} color={NAVY} />
-                <Text style={styles.metaText}>{item.durationMinutes} {t('minutes', 'mins')}</Text>
-              </View>
-            </View>
+              {/* Middle Info Column */}
+              <View style={styles.cardMiddleContent}>
+                <View style={styles.cardTitleRow}>
+                  <Text style={styles.cardTitle} numberOfLines={1}>
+                    {item.category} {t('test_series_title', 'Test Series')}
+                  </Text>
+                </View>
 
-            <View style={styles.progressLabelRow}>
-              <Text style={styles.difficultyText}>{item.difficulty}</Text>
-              <Text style={styles.percentText}>{item.percentCompleted}% {t('completed', 'Completed')}</Text>
-            </View>
-            <View style={styles.progressTrack}>
-              <View style={[styles.progressFill, { width: `${item.percentCompleted}%` }]} />
+                <Text style={styles.cardSubText}>
+                  {item.totalTests} Tests • {item.totalQuestions} Qs • {item.durationMinutes} mins
+                </Text>
+
+                <View style={styles.progressLabelRow}>
+                  <Text style={styles.difficultyText}>{item.difficulty}</Text>
+                  <Text style={styles.percentText}>{item.percentCompleted}% Completed</Text>
+                </View>
+
+                <View style={styles.progressTrack}>
+                  <View style={[styles.progressFill, { width: `${item.percentCompleted}%` }]} />
+                </View>
+              </View>
+
+              {/* Right Action Button Pill */}
+              <View style={styles.cardRightAction}>
+                {item.isPaid && !item.isPurchased ? (
+                  <View style={[styles.actionPill, styles.actionPillLocked]}>
+                    <Text style={styles.actionPillTextLocked}>₹{item.price}</Text>
+                    <Ionicons name="chevron-down" size={14} color="#92400E" />
+                  </View>
+                ) : (
+                  <View style={[styles.actionPill, styles.actionPillOpen]}>
+                    <Text style={styles.actionPillTextOpen}>Open</Text>
+                    <Ionicons name="chevron-down" size={14} color="#1E1E1E" />
+                  </View>
+                )}
+              </View>
             </View>
           </Pressable>
         ))}
       </ScrollView>
+
+      {/* How It Works Modal */}
+      <Modal visible={howItWorksVisible} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.infoModalCard}>
+            <View style={styles.infoModalHeader}>
+              <Text style={styles.infoModalTitle}>About Test Series</Text>
+              <Pressable onPress={() => setHowItWorksVisible(false)} hitSlop={8}>
+                <Ionicons name="close" size={22} color="#1E1E1E" />
+              </Pressable>
+            </View>
+
+            <View style={styles.infoStepRow}>
+              <Text style={styles.infoStepIcon}>🎯</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.infoStepTitle}>Full Length & Sectional Mocks</Text>
+                <Text style={styles.infoStepDesc}>
+                  Select your targeted exam category to attempt high quality mock tests curated for real exam patterns.
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.infoStepRow}>
+              <Text style={styles.infoStepIcon}>📊</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.infoStepTitle}>Instant Analysis & Ranks</Text>
+                <Text style={styles.infoStepDesc}>
+                  Track your score percentiles, solution reviews, and rank leaderboard after completing each mock.
+                </Text>
+              </View>
+            </View>
+
+            <Pressable style={styles.infoCloseBtn} onPress={() => setHowItWorksVisible(false)}>
+              <Text style={styles.infoCloseBtnText}>Got It</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -159,144 +251,303 @@ export default function TestsScreen({ token, nav }: Props) {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#F5F4EF',
+    backgroundColor: '#FAF6F0',
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 18,
-    paddingTop: 16,
-    paddingBottom: 12,
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 10,
+    backgroundColor: '#FAF6F0',
+  },
+  headerTitleWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  headerLogoWrap: {
+    width: 30,
+    height: 30,
+    borderRadius: 7,
+    backgroundColor: '#1E1E1E',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '800',
-    color: NAVY,
+    color: '#1E1E1E',
   },
   bellBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
-    ...SOFT_SHADOW,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  mainScroll: {
+    flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 18,
-    paddingBottom: 24,
-    gap: 14,
+    paddingBottom: 30,
+  },
+  statsCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFDF6',
+    borderWidth: 1.2,
+    borderColor: '#F0D688',
+    borderRadius: 18,
+    marginHorizontal: 16,
+    marginTop: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 10,
+  },
+  statCol: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  statEmoji: {
+    fontSize: 18,
+    marginBottom: 2,
+  },
+  statValue: {
+    fontSize: 19,
+    fontWeight: '800',
+    color: '#1E1E1E',
+  },
+  statLabel: {
+    fontSize: 11,
+    color: '#78716C',
+    marginTop: 2,
+  },
+  statDivider: {
+    width: 1,
+    height: 32,
+    backgroundColor: '#EFE9D8',
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginHorizontal: 16,
+    marginTop: 18,
+    marginBottom: 12,
+  },
+  sectionTitleWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#1E1E1E',
+  },
+  sectionCount: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#78716C',
+  },
+  howItWorksBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  howItWorksText: {
+    fontSize: 12,
+    color: '#64748B',
+    fontWeight: '600',
   },
   loadingBox: {
     paddingVertical: 40,
     alignItems: 'center',
   },
   errorBox: {
-    marginTop: 20,
-    padding: 16,
+    marginHorizontal: 16,
+    padding: 14,
     borderRadius: 12,
     backgroundColor: '#FBEAE8',
     alignItems: 'center',
   },
   errorText: {
-    color: '#C0392B',
+    color: ERROR,
     fontSize: 13,
-    textAlign: 'center',
   },
   retryText: {
-    marginTop: 8,
-    color: NAVY,
+    fontSize: 12,
     fontWeight: '700',
-    fontSize: 12.5,
+    color: NAVY,
   },
   card: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    padding: 16,
-    ...CARD_SHADOW,
+    borderRadius: 18,
+    borderWidth: 1.5,
+    borderColor: '#1E1E1E',
+    marginHorizontal: 16,
+    marginBottom: 12,
+    padding: 13,
   },
-  cardTopRow: {
+  cardMainRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  cardLogoBadge: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#EFF6FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+    borderWidth: 1.5,
+    borderColor: '#BFDBFE',
+    overflow: 'hidden',
+  },
+  cardLogoImg: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+  },
+  cardMiddleContent: {
+    flex: 1,
+    justifyContent: 'center',
   },
   cardTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    flexShrink: 1,
-  },
-  categoryIconWrap: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: GOLD_TINT,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-  },
-  categoryIconImg: {
-    width: 30,
-    height: 30,
   },
   cardTitle: {
-    fontSize: 15,
+    fontSize: 14.5,
     fontWeight: '800',
-    color: NAVY,
+    color: '#1E1E1E',
   },
-  priceTag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
-    marginTop: 4,
-  },
-  priceTagText: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  metaRow: {
-    flexDirection: 'row',
-    gap: 16,
-    marginTop: 10,
-  },
-  metaItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-  },
-  metaText: {
-    fontSize: 12,
-    color: MUTED,
+  cardSubText: {
+    fontSize: 11.5,
+    color: '#78716C',
+    marginTop: 2,
   },
   progressLabelRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 14,
-    marginBottom: 6,
+    alignItems: 'center',
+    marginTop: 6,
+    marginBottom: 4,
   },
   difficultyText: {
-    fontSize: 11.5,
+    fontSize: 11,
     color: MUTED,
+    fontWeight: '600',
   },
   percentText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
     color: NAVY,
   },
   progressTrack: {
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#EEEDE6',
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: '#E2E8F0',
     overflow: 'hidden',
+    marginTop: 2,
   },
   progressFill: {
     height: '100%',
-    borderRadius: 3,
+    borderRadius: 2.5,
     backgroundColor: GOLD,
+  },
+  cardRightAction: {
+    marginLeft: 8,
+  },
+  actionPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 14,
+    borderWidth: 1.2,
+  },
+  actionPillOpen: {
+    backgroundColor: '#FEF3C7',
+    borderColor: '#1E1E1E',
+  },
+  actionPillTextOpen: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#1E1E1E',
+  },
+  actionPillLocked: {
+    backgroundColor: '#FEF3C7',
+    borderColor: '#92400E',
+  },
+  actionPillTextLocked: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#92400E',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15,23,42,0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  infoModalCard: {
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 20,
+    borderWidth: 1.5,
+    borderColor: '#1E1E1E',
+  },
+  infoModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  infoModalTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#1E1E1E',
+  },
+  infoStepRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    marginBottom: 14,
+  },
+  infoStepIcon: {
+    fontSize: 22,
+  },
+  infoStepTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1E1E1E',
+  },
+  infoStepDesc: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+    lineHeight: 16,
+  },
+  infoCloseBtn: {
+    backgroundColor: '#1E1E1E',
+    borderRadius: 20,
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  infoCloseBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 13,
   },
 });

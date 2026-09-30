@@ -5,6 +5,7 @@ export interface PyqItem {
   id: string;
   title: string;
   category: string;
+  categoryIcon?: string | null;
   examName: string;
   year: number;
   fileUrl: string | null;

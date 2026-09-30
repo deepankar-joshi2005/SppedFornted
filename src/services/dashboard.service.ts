@@ -6,6 +6,7 @@ export interface DashboardStats {
   attempted: number;
   avgScore: number;
   rank: number | null;
+  streakDays: number;
 }
 
 export interface ContinueTest {
@@ -118,5 +119,16 @@ export const getDashboard = async (token: string, category?: string): Promise<Da
     return response.data;
   } catch (error) {
     throw new Error(extractErrorMessage(error, 'Failed to load dashboard. Please try again.'));
+  }
+};
+
+export const getStreakDays = async (token: string): Promise<number> => {
+  try {
+    const response = await api.get<{ streakDays: number }>('/dashboard/streak', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return response.data.streakDays;
+  } catch {
+    return 0;
   }
 };

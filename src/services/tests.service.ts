@@ -32,10 +32,12 @@ export interface TestListItem {
   canReattempt: boolean;
   isFreeDemo?: boolean;
   isLocked?: boolean;
+  attemptedCount?: number;
 }
 
 export interface TestListResponse {
   category: string;
+  categoryIcon?: string | null;
   seriesId?: string;
   seriesTitle: string;
   bannerImage: string | null;
@@ -44,6 +46,11 @@ export interface TestListResponse {
   coachingPrice?: number;
   isPurchased?: boolean;
   isCoachingStudent?: boolean;
+  userStats?: {
+    streakDays: number;
+    mocksTaken: number;
+    totalAttempts: number;
+  };
   tests: TestListItem[];
 }
 
