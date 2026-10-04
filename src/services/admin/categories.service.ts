@@ -20,6 +20,7 @@ export interface AdminCategorySeriesItem {
   totalTests: number;
   totalQuestions: number;
   status: 'draft' | 'published';
+  accessType: 'free' | 'paid';
 }
 
 export interface AdminCategoryDetail {

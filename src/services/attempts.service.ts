@@ -144,6 +144,8 @@ export class SectionLockedError extends Error {
     this.sectionProgress = sectionProgress;
   }
 }
+export class NotStartedYetError extends Error {}
+export class TestEndedError extends Error {}
 export class TestSeriesPaidError extends Error {
   seriesId: string;
   price: number;
@@ -183,6 +185,12 @@ export const startAttempt = async (
     if (isAxiosError(error) && error.response?.data?.code === 'TEST_SERIES_PAID') {
       const d = error.response.data;
       throw new TestSeriesPaidError(d.message, d.seriesId, d.price, d.isCoachingStudent);
+    }
+    if (isAxiosError(error) && error.response?.data?.code === 'NOT_STARTED_YET') {
+      throw new NotStartedYetError(error.response.data.message);
+    }
+    if (isAxiosError(error) && error.response?.data?.code === 'TEST_ENDED') {
+      throw new TestEndedError(error.response.data.message);
     }
     throw new Error(extractErrorMessage(error, 'Failed to start test. Please try again.'));
   }

@@ -130,12 +130,6 @@ export default function AdminHomeScreen({ user, token, nav }: Props) {
       icon: 'share-social-outline',
       onPress: () => nav.push({ name: 'socialMedia' }),
     },
-    {
-      key: 'upcomingMocks',
-      label: 'Upcoming Mocks',
-      icon: 'calendar-outline',
-      onPress: () => nav.push({ name: 'upcomingMocks' }),
-    },
   ];
 
   const initials = user.name

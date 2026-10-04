@@ -86,7 +86,14 @@ export default function AdminCategoryDetailScreen({ token, categoryId, nav }: Pr
               onPress={() => nav.push({ name: 'seriesTests', seriesId: s.id })}
             >
               <View style={styles.cardTextWrap}>
-                <Text style={styles.cardTitle}>{s.title}</Text>
+                <View style={styles.cardTitleRow}>
+                  <Text style={styles.cardTitle}>{s.title}</Text>
+                  {s.accessType === 'paid' && (
+                    <View style={styles.paidTag}>
+                      <Text style={styles.paidTagText}>Paid</Text>
+                    </View>
+                  )}
+                </View>
                 <Text style={styles.cardMeta}>
                   {s.totalTests} Tests • {s.totalQuestions} Questions
                 </Text>
@@ -152,8 +159,11 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   cardTextWrap: { flexShrink: 1 },
+  cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   cardTitle: { fontSize: 14, fontWeight: '800', color: NAVY },
   cardMeta: { fontSize: 11.5, color: MUTED, marginTop: 3 },
+  paidTag: { backgroundColor: '#FEF3C7', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
+  paidTagText: { fontSize: 10, fontWeight: '800', color: '#92400E' },
   statusBadge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10 },
   statusPublished: { backgroundColor: '#E1F5EA' },
   statusDraft: { backgroundColor: '#FDF1DC' },

@@ -34,6 +34,7 @@ export interface AdminTestDetail {
   sectionOrder: string[];
   accessLevel: TestAccessLevel;
   isFreeDemo?: boolean;
+  addedToUpcomingMocks?: boolean;
 }
 
 export interface CreateTestPayload {
@@ -63,6 +64,7 @@ export interface UpdateTestConfigPayload {
   endTime?: string | null;
   accessLevel?: TestAccessLevel;
   isFreeDemo?: boolean;
+  addedToUpcomingMocks?: boolean;
 }
 
 export interface AdminTestListItem {

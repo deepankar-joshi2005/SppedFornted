@@ -13,7 +13,13 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import RazorpayCheckoutModal from '../components/RazorpayCheckoutModal';
 import { Nav } from '../navigation/types';
-import { CoachingOnlyError, TestSeriesPaidError, startAttempt } from '../services/attempts.service';
+import {
+  CoachingOnlyError,
+  NotStartedYetError,
+  TestEndedError,
+  TestSeriesPaidError,
+  startAttempt,
+} from '../services/attempts.service';
 import { getTestInstructions, TestInstructions } from '../services/tests.service';
 import {
   createRazorpayOrder,
@@ -241,6 +247,10 @@ export default function TestInstructionsScreen({ token, testId, nav }: Props) {
     } catch (err) {
       if (err instanceof CoachingOnlyError) {
         Alert.alert('Coaching Students Only', err.message);
+      } else if (err instanceof NotStartedYetError) {
+        Alert.alert('Test Not Started Yet', err.message);
+      } else if (err instanceof TestEndedError) {
+        Alert.alert('Test Ended', err.message);
       } else if (err instanceof TestSeriesPaidError) {
         setPayModalInfo({
           visible: true,

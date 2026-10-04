@@ -36,7 +36,6 @@ export type AdminRoute =
   | { name: 'banners' }
   | { name: 'teacherInfo' }
   | { name: 'successStories' }
-  | { name: 'upcomingMocks' }
   | { name: 'pyq' }
   | { name: 'ebooks' }
   | { name: 'socialMedia' }

@@ -42,6 +42,7 @@ export default function AdminCreateTestStep2Screen({ token, testId, nav }: Props
   const [endDate, setEndDate] = useState('');
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
+  const [addedToUpcomingMocks, setAddedToUpcomingMocks] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -61,6 +62,7 @@ export default function AdminCreateTestStep2Screen({ token, testId, nav }: Props
         setEndDate(test.endDate ? test.endDate.slice(0, 10) : '');
         setStartTime(test.startTime ?? '');
         setEndTime(test.endTime ?? '');
+        setAddedToUpcomingMocks(!!test.addedToUpcomingMocks);
         if (test.maxAttempts === 0) setAttemptsMode('unlimited');
         else if (test.maxAttempts === 1) setAttemptsMode('1');
         else {
@@ -100,6 +102,7 @@ export default function AdminCreateTestStep2Screen({ token, testId, nav }: Props
         endDate: endDate || null,
         startTime: startTime || null,
         endTime: endTime || null,
+        addedToUpcomingMocks,
       });
       nav.replace({ name: 'manageQuestions', testId });
     } catch (err) {
@@ -301,6 +304,13 @@ export default function AdminCreateTestStep2Screen({ token, testId, nav }: Props
             students will be blocked from attempting after that time, and their Result / Solution will
             only unlock at that End Time.
           </Text>
+
+          <ToggleRow
+            label="Add to Upcoming / Live Mocks"
+            description="Shows this test on the student Home screen — in Upcoming Mocks until its start date/time arrives, then automatically in Live Mocks until it ends. Leave off to keep this test out of both sections."
+            value={addedToUpcomingMocks}
+            onChange={setAddedToUpcomingMocks}
+          />
 
           <PrimaryButton label="SAVE & CONTINUE" onPress={handleSave} loading={saving || loading} />
         </ScrollView>
