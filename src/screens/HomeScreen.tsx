@@ -57,7 +57,7 @@ const getInitials = (name: string): string =>
 const QUICK_GRID_ITEMS = [
   { id: 'full', title: 'Full length', icon: 'create-outline', bg: '#E3F2FD', color: '#1E88E5' },
   { id: 'pyp', title: 'PYPs', icon: 'document-text-outline', bg: '#FCE4EC', color: '#E91E63' },
-  { id: 'super', title: 'Super Set', badge: 'FREE', badgeBg: '#4CAF50', icon: 'flash-outline', bg: '#F0F4C3', color: '#7CB342' },
+  { id: 'myCourses', title: 'My Courses', icon: 'school-outline', bg: '#F0F4C3', color: '#7CB342' },
   { id: 'ebook', title: 'EBooks', icon: 'library-outline', bg: '#E0F2F1', color: '#00897B' },
   { id: 'live', title: 'Live Mock Test', badge: 'LIVE', badgeBg: '#FF5252', icon: 'journal-outline', bg: '#EDE7F6', color: '#5E35B1' },
   { id: 'sec', title: 'Sectional Test', icon: 'clipboard-outline', bg: '#F3E5F5', color: '#8E24AA' },
@@ -156,8 +156,8 @@ export default function HomeScreen({ user, token, nav }: Props) {
         nav.push({ name: 'pypsCategories' });
         return;
       }
-      if (id === 'super') {
-        nav.push({ name: 'freeTests' });
+      if (id === 'myCourses') {
+        nav.push({ name: 'myCourses' });
         return;
       }
       if (id === 'ebook') {
@@ -244,6 +244,7 @@ export default function HomeScreen({ user, token, nav }: Props) {
           durationMinutes: 60,
           totalMarks: 200,
           isLive: true,
+          liveTimeLabel: null,
           category: 'SSC',
         },
         {
@@ -254,6 +255,7 @@ export default function HomeScreen({ user, token, nav }: Props) {
           durationMinutes: 90,
           totalMarks: 100,
           isLive: true,
+          liveTimeLabel: null,
           category: 'RRB',
         },
       ];
@@ -606,7 +608,10 @@ export default function HomeScreen({ user, token, nav }: Props) {
                     </View>
 
                     <View style={styles.liveMockSubPill}>
-                      <Text style={styles.liveMockSubPillText}>• {item.badgeText}</Text>
+                      <Text style={styles.liveMockSubPillText}>
+                        • {item.badgeText}
+                        {item.liveTimeLabel ? ` · ${item.liveTimeLabel}` : ''}
+                      </Text>
                     </View>
 
                     <View style={styles.liveMockDetailsRow}>
@@ -764,9 +769,9 @@ export default function HomeScreen({ user, token, nav }: Props) {
                   const dateStr = startDate.toLocaleDateString('en-IN', {
                     day: '2-digit', month: 'short', year: 'numeric',
                   });
-                  const timeStr = startDate.toLocaleTimeString('en-IN', {
-                    hour: '2-digit', minute: '2-digit',
-                  });
+                  // startDate is date-only (no time-of-day) — only ever show
+                  // a clock time when the test actually has one configured.
+                  const timeStr = item.startTimeLabel;
                   return (
                     <View style={styles.liveMockCard}>
                       <View style={styles.liveMockHeaderRow}>
@@ -801,7 +806,7 @@ export default function HomeScreen({ user, token, nav }: Props) {
                         <View style={styles.upcomingDateBox}>
                           <Ionicons name="calendar-outline" size={13} color="#4F46E5" />
                           <Text style={styles.upcomingDateText}>{dateStr}</Text>
-                          <Text style={styles.upcomingTimeText}>{timeStr}</Text>
+                          {!!timeStr && <Text style={styles.upcomingTimeText}>{timeStr}</Text>}
                         </View>
                       </View>
                     </View>
@@ -851,7 +856,9 @@ export default function HomeScreen({ user, token, nav }: Props) {
                     {item.status === 'completed' ? (
                       <>
                         <Text style={styles.activityStatsText}>
-                          {(item.score ?? 0).toFixed(2)} Marks   |   {(item.accuracy ?? 0).toFixed(1)}% Acc
+                          {item.resultLocked
+                            ? `Submitted • Result at ${item.resultAvailableAtLabel}`
+                            : `${(item.score ?? 0).toFixed(2)} Marks   |   ${(item.accuracy ?? 0).toFixed(1)}% Acc`}
                         </Text>
                         <Pressable
                           style={styles.resultBlueBtn}
@@ -859,7 +866,9 @@ export default function HomeScreen({ user, token, nav }: Props) {
                             nav.push({ name: 'testResult', attemptId: item.attemptId })
                           }
                         >
-                          <Text style={styles.resultBlueText}>Result</Text>
+                          <Text style={styles.resultBlueText}>
+                            {item.resultLocked ? 'View' : 'Result'}
+                          </Text>
                         </Pressable>
                       </>
                     ) : (

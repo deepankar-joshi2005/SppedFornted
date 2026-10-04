@@ -45,6 +45,7 @@ export interface AdminSeriesDetail {
   accessType: AccessType;
   price: number;
   coachingPrice: number;
+  coachingAccessType?: AccessType;
   freeDemoCount: number;
   validityMonths: number;
   startDate: string | null;
@@ -81,6 +82,7 @@ export interface UpdateSeriesPayload {
   accessType?: AccessType;
   price?: number;
   coachingPrice?: number;
+  coachingAccessType?: AccessType;
   freeDemoCount?: number;
   isPublic?: boolean;
 }

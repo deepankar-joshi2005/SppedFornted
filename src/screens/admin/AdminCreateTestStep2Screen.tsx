@@ -7,6 +7,7 @@ import StepProgressHeader from '../../components/admin/StepProgressHeader';
 import ToggleRow from '../../components/admin/ToggleRow';
 import FormInput from '../../components/FormInput';
 import DateInputField from '../../components/DateInputField';
+import TimeInputField from '../../components/TimeInputField';
 import PrimaryButton from '../../components/PrimaryButton';
 import { AdminNav } from '../../navigation/adminTypes';
 import {
@@ -39,6 +40,8 @@ export default function AdminCreateTestStep2Screen({ token, testId, nav }: Props
   const [isFreeDemo, setIsFreeDemo] = useState(false);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [startTime, setStartTime] = useState('');
+  const [endTime, setEndTime] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -56,6 +59,8 @@ export default function AdminCreateTestStep2Screen({ token, testId, nav }: Props
         setIsFreeDemo(!!test.isFreeDemo);
         setStartDate(test.startDate ? test.startDate.slice(0, 10) : '');
         setEndDate(test.endDate ? test.endDate.slice(0, 10) : '');
+        setStartTime(test.startTime ?? '');
+        setEndTime(test.endTime ?? '');
         if (test.maxAttempts === 0) setAttemptsMode('unlimited');
         else if (test.maxAttempts === 1) setAttemptsMode('1');
         else {
@@ -93,6 +98,8 @@ export default function AdminCreateTestStep2Screen({ token, testId, nav }: Props
         isFreeDemo: parentSeriesAccessType === 'free' ? true : isFreeDemo,
         startDate: startDate || null,
         endDate: endDate || null,
+        startTime: startTime || null,
+        endTime: endTime || null,
       });
       nav.replace({ name: 'manageQuestions', testId });
     } catch (err) {
@@ -277,6 +284,23 @@ export default function AdminCreateTestStep2Screen({ token, testId, nav }: Props
               />
             </View>
           </View>
+
+          <View style={styles.row}>
+            <View style={styles.col}>
+              <Text style={styles.label}>Start Time (optional)</Text>
+              <TimeInputField value={startTime} onChange={setStartTime} placeholder="Optional" />
+            </View>
+            <View style={styles.col}>
+              <Text style={styles.label}>End Time (optional)</Text>
+              <TimeInputField value={endTime} onChange={setEndTime} placeholder="Optional" />
+            </View>
+          </View>
+          <Text style={styles.helperText}>
+            Time is optional — if left blank, scheduling works purely by date as before. If you set a
+            time, the Live section will show it (e.g. "Live at 9:00 AM"), and if you set an End Time,
+            students will be blocked from attempting after that time, and their Result / Solution will
+            only unlock at that End Time.
+          </Text>
 
           <PrimaryButton label="SAVE & CONTINUE" onPress={handleSave} loading={saving || loading} />
         </ScrollView>

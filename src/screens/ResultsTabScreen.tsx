@@ -160,19 +160,32 @@ export default function ResultsTabScreen({ token, nav }: Props) {
               </Text>
               <Text style={styles.historyDate}>{formatDate(item.submittedAt)}</Text>
             </View>
-            <Text style={styles.historyMeta}>
-              {t('score', 'Score')}: <Text style={styles.historyMetaBold}>{item.score}/100 ({item.scorePercent}%)</Text>
-              {'   '}{t('rank_of', 'Rank')}: <Text style={styles.historyMetaBold}>#{item.rank}</Text>
-            </Text>
-            <View style={styles.historyBottomRow}>
-              <Text style={[styles.passedText, !item.passed && styles.failedText]}>
-                {item.passed ? t('passed', 'Passed') : t('failed', 'Not Passed')}
+            {item.resultLocked ? (
+              <Text style={styles.historyMeta}>
+                Submitted — Result at{' '}
+                <Text style={styles.historyMetaBold}>{item.resultAvailableAtLabel}</Text>
               </Text>
+            ) : (
+              <Text style={styles.historyMeta}>
+                {t('score', 'Score')}: <Text style={styles.historyMetaBold}>{item.score}/100 ({item.scorePercent}%)</Text>
+                {'   '}{t('rank_of', 'Rank')}: <Text style={styles.historyMetaBold}>#{item.rank}</Text>
+              </Text>
+            )}
+            <View style={styles.historyBottomRow}>
+              {item.resultLocked ? (
+                <Text style={styles.historyMeta}>Submitted</Text>
+              ) : (
+                <Text style={[styles.passedText, !item.passed && styles.failedText]}>
+                  {item.passed ? t('passed', 'Passed') : t('failed', 'Not Passed')}
+                </Text>
+              )}
               <Pressable
                 style={styles.viewResultBtn}
                 onPress={() => nav.push({ name: 'testResult', attemptId: item.attemptId })}
               >
-                <Text style={styles.viewResultText}>{t('test_result_title', 'View Result')}</Text>
+                <Text style={styles.viewResultText}>
+                  {item.resultLocked ? 'View' : t('test_result_title', 'View Result')}
+                </Text>
               </Pressable>
             </View>
           </View>

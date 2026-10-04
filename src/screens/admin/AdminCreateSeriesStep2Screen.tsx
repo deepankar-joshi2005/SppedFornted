@@ -28,6 +28,7 @@ export default function AdminCreateSeriesStep2Screen({ token, seriesId, nav }: P
   const [endDate, setEndDate] = useState('');
   const [accessType, setAccessType] = useState<AccessType>('paid');
   const [price, setPrice] = useState('');
+  const [coachingAccessType, setCoachingAccessType] = useState<AccessType>('paid');
   const [coachingPrice, setCoachingPrice] = useState('');
   const [freeDemoCount, setFreeDemoCount] = useState('1');
   const [isPublic, setIsPublic] = useState(true);
@@ -44,6 +45,7 @@ export default function AdminCreateSeriesStep2Screen({ token, seriesId, nav }: P
         setEndDate(detail.endDate ? detail.endDate.slice(0, 10) : '');
         setAccessType(detail.accessType);
         setPrice(String(detail.price || ''));
+        setCoachingAccessType(detail.coachingAccessType ?? 'paid');
         setCoachingPrice(String(detail.coachingPrice || ''));
         setFreeDemoCount(String(detail.freeDemoCount ?? 1));
         setIsPublic(detail.isPublic);
@@ -65,7 +67,9 @@ export default function AdminCreateSeriesStep2Screen({ token, seriesId, nav }: P
         endDate: endDate || null,
         accessType,
         price: accessType === 'free' ? 0 : Number(price) || 0,
-        coachingPrice: accessType === 'free' ? 0 : Number(coachingPrice) || 0,
+        coachingAccessType,
+        coachingPrice:
+          accessType === 'free' || coachingAccessType === 'free' ? 0 : Number(coachingPrice) || 0,
         freeDemoCount: Number(freeDemoCount) >= 0 ? Number(freeDemoCount) : 1,
         isPublic,
       });
@@ -153,14 +157,42 @@ export default function AdminCreateSeriesStep2Screen({ token, seriesId, nav }: P
                 keyboardType="number-pad"
               />
 
-              <Text style={styles.label}>Discounted Price for Coaching Students (₹)</Text>
-              <FormInput
-                icon="card-outline"
-                placeholder="e.g. 199 (0 for free for coaching students)"
-                value={coachingPrice}
-                onChangeText={setCoachingPrice}
-                keyboardType="number-pad"
-              />
+              <Text style={styles.label}>Coaching Student Pricing</Text>
+              <View style={styles.accessRow}>
+                <Pressable
+                  style={[styles.accessOption, coachingAccessType === 'free' && styles.accessOptionActive]}
+                  onPress={() => setCoachingAccessType('free')}
+                >
+                  <Text
+                    style={[styles.accessText, coachingAccessType === 'free' && styles.accessTextActive]}
+                  >
+                    Free for Coaching Students
+                  </Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.accessOption, coachingAccessType === 'paid' && styles.accessOptionActive]}
+                  onPress={() => setCoachingAccessType('paid')}
+                >
+                  <Text
+                    style={[styles.accessText, coachingAccessType === 'paid' && styles.accessTextActive]}
+                  >
+                    Paid (Discounted)
+                  </Text>
+                </Pressable>
+              </View>
+
+              {coachingAccessType === 'paid' && (
+                <>
+                  <Text style={styles.label}>Discounted Price for Coaching Students (₹)</Text>
+                  <FormInput
+                    icon="card-outline"
+                    placeholder="e.g. 199"
+                    value={coachingPrice}
+                    onChangeText={setCoachingPrice}
+                    keyboardType="number-pad"
+                  />
+                </>
+              )}
 
               <Text style={styles.label}>Free Demo Tests Count (in this series)</Text>
               <FormInput

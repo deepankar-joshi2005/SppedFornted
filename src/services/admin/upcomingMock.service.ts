@@ -11,6 +11,7 @@ export interface UpcomingMockItem {
   totalMarks: number;
   category: string;
   startDate: string;
+  startTimeLabel: string | null;
 }
 
 export interface AvailableTestItem {
@@ -22,6 +23,7 @@ export interface AvailableTestItem {
   durationMinutes: number;
   totalMarks: number;
   startDate: string | null;
+  startTimeLabel: string | null;
   alreadyAdded: boolean;
 }
 

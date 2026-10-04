@@ -124,12 +124,14 @@ export interface SolutionsResponse {
 export interface HistoryItem {
   attemptId: string;
   title: string;
-  score: number;
-  scorePercent: number;
+  score: number | null;
+  scorePercent: number | null;
   rank: number | null;
   totalCandidates: number | null;
-  passed: boolean;
+  passed: boolean | null;
   submittedAt: string;
+  resultLocked: boolean;
+  resultAvailableAtLabel: string | null;
 }
 
 export class CoachingOnlyError extends Error {}

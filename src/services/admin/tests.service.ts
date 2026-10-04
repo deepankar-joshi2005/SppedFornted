@@ -26,6 +26,8 @@ export interface AdminTestDetail {
   difficulty: string;
   startDate: string | null;
   endDate: string | null;
+  startTime: string | null;
+  endTime: string | null;
   status: 'draft' | 'published';
   subjectSections: SubjectSection[];
   divideSectionsByTime: boolean;
@@ -57,6 +59,8 @@ export interface UpdateTestConfigPayload {
   maxAttempts?: number;
   startDate?: string | null;
   endDate?: string | null;
+  startTime?: string | null;
+  endTime?: string | null;
   accessLevel?: TestAccessLevel;
   isFreeDemo?: boolean;
 }

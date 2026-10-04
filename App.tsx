@@ -1,5 +1,4 @@
 import { StatusBar } from 'expo-status-bar';
-import { usePreventScreenCapture } from 'expo-screen-capture';
 import { useEffect, useRef, useState } from 'react';
 import { Alert, BackHandler, Platform, ToastAndroid, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -9,7 +8,7 @@ import CategoriesScreen from './src/screens/CategoriesScreen';
 import EbooksScreen from './src/screens/EbooksScreen';
 import EditProfileScreen from './src/screens/EditProfileScreen';
 import ChangePasswordScreen from './src/screens/ChangePasswordScreen';
-import FreeTestsScreen from './src/screens/FreeTestsScreen';
+import MyCoursesScreen from './src/screens/MyCoursesScreen';
 import ForgotPasswordScreen from './src/screens/ForgotPasswordScreen';
 import HelpSupportScreen from './src/screens/HelpSupportScreen';
 import HomeScreen from './src/screens/HomeScreen';
@@ -43,9 +42,6 @@ import { loadAuth, saveAuth, clearAuth, StoredAuth } from './src/utils/authStora
 type AuthScreen = 'landing' | 'signup' | 'login' | 'forgotPassword';
 
 export default function App() {
-  // Prevent screenshots and screen recording across the entire app
-  usePreventScreenCapture();
-
   const [authScreen, setAuthScreen] = useState<AuthScreen>('landing');
   const [prefillEmail, setPrefillEmail] = useState('');
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -326,7 +322,7 @@ export default function App() {
             {current.name === 'sectionalCategories' && (
               <SectionalCategoriesScreen token={token} nav={nav} />
             )}
-            {current.name === 'freeTests' && <FreeTestsScreen token={token} nav={nav} />}
+            {current.name === 'myCourses' && <MyCoursesScreen nav={nav} />}
             {current.name === 'liveClasses' && <LiveClassesScreen nav={nav} />}
             {current.name === 'socialMedia' && <SocialMediaScreen token={token} nav={nav} />}
           </View>

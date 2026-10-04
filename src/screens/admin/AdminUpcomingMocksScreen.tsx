@@ -25,12 +25,15 @@ import { MUTED, NAVY, SOFT_SHADOW } from '../../theme/colors';
 
 type Props = { token: string; nav: AdminNav };
 
-const formatDate = (dateStr: string | null | undefined): string => {
+// The stored value is date-only — reading a clock time off it directly is a
+// timezone artifact (e.g. midnight UTC shows as 5:30 AM IST). Only append a
+// time when the test actually has one configured (timeLabel, already
+// formatted server-side from its "HH:mm" startTime).
+const formatDate = (dateStr: string | null | undefined, timeLabel?: string | null): string => {
   if (!dateStr) return 'No date set';
   const d = new Date(dateStr);
-  return d.toLocaleDateString('en-IN', {
-    day: '2-digit', month: 'short', year: 'numeric',
-  }) + ' · ' + d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+  const dateText = d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  return timeLabel ? `${dateText} · ${timeLabel}` : dateText;
 };
 
 export default function AdminUpcomingMocksScreen({ token, nav }: Props) {
@@ -164,7 +167,7 @@ export default function AdminUpcomingMocksScreen({ token, nav }: Props) {
                 </View>
                 <View style={styles.dateRow}>
                   <Ionicons name="calendar" size={13} color="#2563EB" />
-                  <Text style={styles.dateText}>{formatDate(item.startDate)}</Text>
+                  <Text style={styles.dateText}>{formatDate(item.startDate, item.startTimeLabel)}</Text>
                 </View>
               </View>
               <Pressable
@@ -213,7 +216,9 @@ export default function AdminUpcomingMocksScreen({ token, nav }: Props) {
                 <View style={styles.dateRow}>
                   <Ionicons name="calendar-outline" size={13} color={item.startDate ? '#2563EB' : '#EF4444'} />
                   <Text style={[styles.dateText, !item.startDate && { color: '#EF4444' }]}>
-                    {item.startDate ? formatDate(item.startDate) : 'No start date — set in test settings'}
+                    {item.startDate
+                      ? formatDate(item.startDate, item.startTimeLabel)
+                      : 'No start date — set in test settings'}
                   </Text>
                 </View>
               </View>

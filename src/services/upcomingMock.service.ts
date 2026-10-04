@@ -11,6 +11,7 @@ export interface UpcomingMockItem {
   totalMarks: number;
   category: string;
   startDate: string;
+  startTimeLabel: string | null;
 }
 
 const authHeaders = (token: string) => ({ headers: { Authorization: `Bearer ${token}` } });

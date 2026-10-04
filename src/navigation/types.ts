@@ -21,7 +21,7 @@ export type Route =
   | { name: 'pypsPapers'; category: string; examName: string }
   | { name: 'ebooks' }
   | { name: 'sectionalCategories' }
-  | { name: 'freeTests' }
+  | { name: 'myCourses' }
   | { name: 'liveClasses' }
   | { name: 'socialMedia' };
 

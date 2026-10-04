@@ -58,6 +58,7 @@ export interface LiveMockItem {
   durationMinutes: number;
   totalMarks: number;
   isLive: boolean;
+  liveTimeLabel: string | null;
   category: string;
 }
 
@@ -80,6 +81,8 @@ export interface ActivityItem {
   percent: number;
   score: number | null;
   accuracy: number | null;
+  resultLocked: boolean;
+  resultAvailableAtLabel: string | null;
 }
 
 export interface SuccessStoryItem {
