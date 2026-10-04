@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Image,
   Modal,
   Pressable,
@@ -15,13 +16,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import RazorpayCheckoutModal from '../components/RazorpayCheckoutModal';
 import { resolveAssetUrl } from '../config/api';
 import { Nav } from '../navigation/types';
-import { EbookItem, getEbooks, markEbookViewed } from '../services/ebook.service';
+import { EbookItem, getEbooks, markEbookDownloaded, markEbookViewed } from '../services/ebook.service';
 import {
   ContentOrderResponse,
   createContentOrder,
   verifyContentPayment,
 } from '../services/contentPurchases.service';
 import { getStreakDays } from '../services/dashboard.service';
+import { downloadAndSharePdf } from '../utils/pdfDownload';
 import { ERROR, MUTED, NAVY } from '../theme/colors';
 
 type Props = {
@@ -43,6 +45,7 @@ export default function EbooksScreen({ token, nav }: Props) {
   const [buyError, setBuyError] = useState('');
   const [razorpayOrder, setRazorpayOrder] = useState<ContentOrderResponse | null>(null);
   const [razorpayVisible, setRazorpayVisible] = useState(false);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   const load = useCallback(
     async (isRefresh?: boolean) => {
@@ -82,6 +85,27 @@ export default function EbooksScreen({ token, nav }: Props) {
     }
     if (item.fileUrl) {
       nav.push({ name: 'pdfViewer', title: item.title, fileUrl: item.fileUrl });
+    }
+  };
+
+  const handleDownload = async (item: EbookItem) => {
+    if (!item.fileUrl || downloadingId) return;
+    const absoluteUrl = resolveAssetUrl(item.fileUrl);
+    if (!absoluteUrl) return;
+    setDownloadingId(item.id);
+    try {
+      await downloadAndSharePdf(absoluteUrl, item.title);
+      markEbookDownloaded(token, item.id);
+      setEbooks((prev) =>
+        prev ? prev.map((e) => (e.id === item.id ? { ...e, isDownloaded: true } : e)) : prev
+      );
+    } catch (err) {
+      Alert.alert(
+        'Download Failed',
+        err instanceof Error ? err.message : 'Could not download this e-book. Please try again.'
+      );
+    } finally {
+      setDownloadingId(null);
     }
   };
 
@@ -263,10 +287,28 @@ export default function EbooksScreen({ token, nav }: Props) {
                     <Ionicons name="chevron-down" size={14} color="#92400E" />
                   </View>
                 ) : (
-                  <View style={[styles.actionPill, styles.actionPillOpen]}>
-                    <Text style={styles.actionPillTextOpen}>Read</Text>
-                    <Ionicons name="chevron-down" size={14} color="#1E1E1E" />
-                  </View>
+                  <>
+                    <Pressable
+                      style={styles.downloadBtn}
+                      onPress={() => handleDownload(item)}
+                      disabled={downloadingId === item.id}
+                      hitSlop={6}
+                    >
+                      {downloadingId === item.id ? (
+                        <ActivityIndicator size="small" color={NAVY} />
+                      ) : (
+                        <Ionicons
+                          name={item.isDownloaded ? 'checkmark-circle' : 'download-outline'}
+                          size={18}
+                          color={item.isDownloaded ? '#166534' : NAVY}
+                        />
+                      )}
+                    </Pressable>
+                    <View style={[styles.actionPill, styles.actionPillOpen]}>
+                      <Text style={styles.actionPillTextOpen}>Read</Text>
+                      <Ionicons name="chevron-down" size={14} color="#1E1E1E" />
+                    </View>
+                  </>
                 )}
               </View>
             </Pressable>
@@ -566,6 +608,18 @@ const styles = StyleSheet.create({
   },
   cardRightAction: {
     marginLeft: 8,
+    alignItems: 'flex-end',
+    gap: 6,
+  },
+  downloadBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   actionPill: {
     flexDirection: 'row',

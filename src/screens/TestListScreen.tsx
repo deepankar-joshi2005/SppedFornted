@@ -21,13 +21,14 @@ import {
   verifyRazorpayPayment,
 } from '../services/purchases.service';
 import { getSectionalSeriesTests } from '../services/sectional.service';
-import { getTestsByCategory, TestListItem, TestListResponse } from '../services/tests.service';
+import { getTestsByCategory, getTestsBySeries, TestListItem, TestListResponse } from '../services/tests.service';
 import { ERROR, MUTED, NAVY } from '../theme/colors';
 
 type Props = {
   token: string;
   category?: string;
   seriesId?: string;
+  testSeriesId?: string;
   seriesIcon?: string;
   nav: Nav;
 };
@@ -42,7 +43,7 @@ const filterMatches = (filter: Filter, status: TestListItem['status']): boolean 
   return status === 'completed';
 };
 
-export default function TestListScreen({ token, category, seriesId, seriesIcon, nav }: Props) {
+export default function TestListScreen({ token, category, seriesId, testSeriesId, seriesIcon, nav }: Props) {
   const [seriesData, setSeriesData] = useState<TestListResponse | null>(null);
   const [seriesTitle, setSeriesTitle] = useState('');
   const [bannerImage, setBannerImage] = useState<string | null>(null);
@@ -69,7 +70,9 @@ export default function TestListScreen({ token, category, seriesId, seriesIcon, 
       isRefresh ? setRefreshing(true) : setLoading(true);
       setError('');
       try {
-        const result = seriesId
+        const result = testSeriesId
+          ? await getTestsBySeries(token, testSeriesId)
+          : seriesId
           ? await getSectionalSeriesTests(token, seriesId)
           : await getTestsByCategory(token, category as string);
         setSeriesData(result);
@@ -82,7 +85,7 @@ export default function TestListScreen({ token, category, seriesId, seriesIcon, 
         isRefresh ? setRefreshing(false) : setLoading(false);
       }
     },
-    [token, category, seriesId]
+    [token, category, seriesId, testSeriesId]
   );
 
   useEffect(() => {
@@ -154,11 +157,11 @@ export default function TestListScreen({ token, category, seriesId, seriesIcon, 
   const mocksTaken = seriesData?.userStats?.mocksTaken ?? (tests?.filter((t) => t.status === 'completed').length || 1);
   const totalAttempts = seriesData?.userStats?.totalAttempts ?? (tests?.filter((t) => t.status === 'completed').length || 1);
 
-  // seriesIcon arrives as a full URL (already resolved in TestsScreen)
-  // categoryIcon / bannerImage are raw server paths — resolve them here
+  // seriesIcon arrives as a full URL (already resolved by the caller).
+  // This is always the Category icon — the series banner is shown separately
+  // further down as a full-width strip and must never be used as this badge.
   const categoryLogo = seriesIcon
     || (seriesData?.categoryIcon ? resolveAssetUrl(seriesData.categoryIcon) : null)
-    || (seriesData?.bannerImage ? resolveAssetUrl(seriesData.bannerImage) : null)
     || null;
 
   return (

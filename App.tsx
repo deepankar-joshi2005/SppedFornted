@@ -16,6 +16,8 @@ import LandingScreen from './src/screens/LandingScreen';
 import LanguagePreferenceScreen from './src/screens/LanguagePreferenceScreen';
 import LeaderboardScreen from './src/screens/LeaderboardScreen';
 import LiveClassesScreen from './src/screens/LiveClassesScreen';
+import MyDownloadsScreen from './src/screens/MyDownloadsScreen';
+import MyOrdersScreen from './src/screens/MyOrdersScreen';
 import NotificationsScreen from './src/screens/NotificationsScreen';
 import PdfViewerScreen from './src/screens/PdfViewerScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
@@ -31,6 +33,7 @@ import SolutionReviewScreen from './src/screens/SolutionReviewScreen';
 import TestInstructionsScreen from './src/screens/TestInstructionsScreen';
 import TestListScreen from './src/screens/TestListScreen';
 import TestResultScreen from './src/screens/TestResultScreen';
+import TestSeriesListScreen from './src/screens/TestSeriesListScreen';
 import TestTakingScreen from './src/screens/TestTakingScreen';
 import TestsScreen from './src/screens/TestsScreen';
 import StudentReviewsScreen from './src/screens/StudentReviewsScreen';
@@ -264,11 +267,20 @@ export default function App() {
               <ProfileScreen token={token} nav={nav} onLogout={onLogout} />
             )}
             {current.name === 'categories' && <CategoriesScreen token={token} nav={nav} />}
+            {current.name === 'seriesList' && (
+              <TestSeriesListScreen
+                token={token}
+                category={current.category}
+                categoryIcon={current.categoryIcon}
+                nav={nav}
+              />
+            )}
             {current.name === 'testList' && (
               <TestListScreen
                 token={token}
                 category={current.category}
                 seriesId={current.seriesId}
+                testSeriesId={current.testSeriesId}
                 seriesIcon={current.seriesIcon}
                 nav={nav}
               />
@@ -322,6 +334,8 @@ export default function App() {
             {current.name === 'sectionalCategories' && (
               <SectionalCategoriesScreen token={token} nav={nav} />
             )}
+            {current.name === 'myOrders' && <MyOrdersScreen token={token} nav={nav} />}
+            {current.name === 'myDownloads' && <MyDownloadsScreen token={token} nav={nav} />}
             {current.name === 'myCourses' && <MyCoursesScreen nav={nav} />}
             {current.name === 'liveClasses' && <LiveClassesScreen nav={nav} />}
             {current.name === 'socialMedia' && <SocialMediaScreen token={token} nav={nav} />}

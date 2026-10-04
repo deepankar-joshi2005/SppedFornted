@@ -15,19 +15,19 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import NotificationBell from '../components/NotificationBell';
 import { resolveAssetUrl } from '../config/api';
 import { Nav } from '../navigation/types';
-import { useLanguage } from '../context/LanguageContext';
-import { getTestSeriesSummary, TestSeriesSummary } from '../services/tests.service';
+import { getSeriesByCategory, SeriesByCategoryItem } from '../services/tests.service';
 import { getStreakDays } from '../services/dashboard.service';
 import { ERROR, GOLD, MUTED, NAVY } from '../theme/colors';
 
 type Props = {
   token: string;
+  category: string;
+  categoryIcon?: string;
   nav: Nav;
 };
 
-export default function TestsScreen({ token, nav }: Props) {
-  const { t } = useLanguage();
-  const [series, setSeries] = useState<TestSeriesSummary[] | null>(null);
+export default function TestSeriesListScreen({ token, category, categoryIcon, nav }: Props) {
+  const [series, setSeries] = useState<SeriesByCategoryItem[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
@@ -41,7 +41,7 @@ export default function TestsScreen({ token, nav }: Props) {
       setError('');
       try {
         const [result, streak] = await Promise.all([
-          getTestSeriesSummary(token),
+          getSeriesByCategory(token, category),
           getStreakDays(token),
         ]);
         setSeries(result);
@@ -52,7 +52,7 @@ export default function TestsScreen({ token, nav }: Props) {
         isRefresh ? setRefreshing(false) : setLoading(false);
       }
     },
-    [token]
+    [token, category]
   );
 
   useEffect(() => {
@@ -61,17 +61,25 @@ export default function TestsScreen({ token, nav }: Props) {
 
   const totalSeriesCount = series?.length || 0;
   const totalMocksCount = series?.reduce((sum, s) => sum + s.totalTests, 0) || 0;
-  const totalQuestionsCount = series?.reduce((sum, s) => sum + s.totalQuestions, 0) || 0;
 
   return (
     <SafeAreaView style={styles.root} edges={['top']}>
-      {/* Header matching screenshot theme */}
+      {/* Header matching the Category page theme */}
       <View style={styles.headerRow}>
         <View style={styles.headerTitleWrap}>
+          <Pressable style={styles.backBtn} onPress={nav.pop} hitSlop={8}>
+            <Ionicons name="chevron-back" size={22} color="#1E1E1E" />
+          </Pressable>
           <View style={styles.headerLogoWrap}>
-            <Ionicons name="sparkles" size={16} color="#FDE68A" />
+            {categoryIcon ? (
+              <Image source={{ uri: categoryIcon }} style={styles.headerLogoImg} resizeMode="cover" />
+            ) : (
+              <Ionicons name="sparkles" size={16} color="#FDE68A" />
+            )}
           </View>
-          <Text style={styles.headerTitle}>Category</Text>
+          <Text style={styles.headerTitle} numberOfLines={1}>
+            Test Series
+          </Text>
         </View>
 
         <NotificationBell
@@ -102,7 +110,7 @@ export default function TestsScreen({ token, nav }: Props) {
           <View style={styles.statCol}>
             <Text style={styles.statEmoji}>📝</Text>
             <Text style={styles.statValue}>{totalSeriesCount}</Text>
-            <Text style={styles.statLabel}>categories</Text>
+            <Text style={styles.statLabel}>test series</Text>
           </View>
 
           <View style={styles.statDivider} />
@@ -117,7 +125,7 @@ export default function TestsScreen({ token, nav }: Props) {
         {/* Section Header Row */}
         <View style={styles.sectionHeaderRow}>
           <View style={styles.sectionTitleWrap}>
-            <Text style={styles.sectionTitle}>Available Categories</Text>
+            <Text style={styles.sectionTitle}>{category}</Text>
             <Text style={styles.sectionCount}>{totalSeriesCount}</Text>
           </View>
           <Pressable
@@ -140,8 +148,15 @@ export default function TestsScreen({ token, nav }: Props) {
           <View style={styles.errorBox}>
             <Text style={styles.errorText}>{error}</Text>
             <Pressable onPress={() => load()} style={{ marginTop: 8 }}>
-              <Text style={styles.retryText}>{t('retry', 'Tap to retry')}</Text>
+              <Text style={styles.retryText}>Tap to retry</Text>
             </Pressable>
+          </View>
+        )}
+
+        {series?.length === 0 && (
+          <View style={styles.emptyBox}>
+            <Ionicons name="document-text-outline" size={36} color={MUTED} />
+            <Text style={styles.emptyText}>No test series available in this category yet.</Text>
           </View>
         )}
 
@@ -149,50 +164,70 @@ export default function TestsScreen({ token, nav }: Props) {
         {series?.map((item) => (
           <Pressable
             style={styles.card}
-            key={item.category}
-            onPress={() => nav.push({ name: 'seriesList', category: item.category, categoryIcon: item.iconImage ? resolveAssetUrl(item.iconImage) : undefined })}
+            key={item.seriesId}
+            onPress={() =>
+              nav.push({
+                name: 'testList',
+                testSeriesId: item.seriesId,
+                seriesIcon: categoryIcon,
+              })
+            }
           >
-            <View style={styles.cardMainRow}>
-              {/* Left Badge: Category Logo Image */}
-              <View style={styles.cardLogoBadge}>
-                {item.iconImage ? (
-                  <Image
-                    source={{ uri: resolveAssetUrl(item.iconImage) }}
-                    style={styles.cardLogoImg}
-                    resizeMode="contain"
-                  />
-                ) : (
-                  <Ionicons name="school" size={24} color={NAVY} />
-                )}
-              </View>
+            {/* Banner strip — only when the admin has uploaded one for this series */}
+            {!!item.bannerImage && (
+              <Image
+                source={{ uri: resolveAssetUrl(item.bannerImage) }}
+                style={styles.cardBanner}
+                resizeMode="cover"
+              />
+            )}
 
-              {/* Middle Info Column */}
-              <View style={styles.cardMiddleContent}>
-                <View style={styles.cardTitleRow}>
-                  <Text style={styles.cardTitle} numberOfLines={1}>
-                    {item.category}
+            <View style={styles.cardBody}>
+              <View style={styles.cardMainRow}>
+                {/* Left Badge: same Category icon shown on the Category page */}
+                <View style={styles.cardLogoBadge}>
+                  {categoryIcon ? (
+                    <Image source={{ uri: categoryIcon }} style={styles.cardLogoImg} resizeMode="contain" />
+                  ) : (
+                    <Ionicons name="school" size={24} color={NAVY} />
+                  )}
+                </View>
+
+                {/* Middle Info Column */}
+                <View style={styles.cardMiddleContent}>
+                  <View style={styles.cardTitleRow}>
+                    <Text style={styles.cardTitle} numberOfLines={1}>
+                      {item.title}
+                    </Text>
+                  </View>
+
+                  <Text style={styles.cardSubText}>
+                    {item.totalTests} Tests • {item.totalQuestions} Qs • {item.durationMinutes} mins
                   </Text>
+
+                  <View style={styles.progressLabelRow}>
+                    <Text style={styles.difficultyText}>{item.difficulty}</Text>
+                    <Text style={styles.percentText}>{item.percentCompleted}% Completed</Text>
+                  </View>
+
+                  <View style={styles.progressTrack}>
+                    <View style={[styles.progressFill, { width: `${item.percentCompleted}%` }]} />
+                  </View>
                 </View>
 
-                <Text style={styles.cardSubText}>
-                  {item.totalSeries} Test Series • {item.totalQuestions} Qs • {item.durationMinutes} mins
-                </Text>
-
-                <View style={styles.progressLabelRow}>
-                  <Text style={styles.difficultyText}>{item.difficulty}</Text>
-                  <Text style={styles.percentText}>{item.percentCompleted}% Completed</Text>
-                </View>
-
-                <View style={styles.progressTrack}>
-                  <View style={[styles.progressFill, { width: `${item.percentCompleted}%` }]} />
-                </View>
-              </View>
-
-              {/* Right Action Button Pill — categories are never paid, series are */}
-              <View style={styles.cardRightAction}>
-                <View style={[styles.actionPill, styles.actionPillOpen]}>
-                  <Text style={styles.actionPillTextOpen}>Open</Text>
-                  <Ionicons name="chevron-down" size={14} color="#1E1E1E" />
+                {/* Right Action Button Pill */}
+                <View style={styles.cardRightAction}>
+                  {item.isPaid && !item.isPurchased ? (
+                    <View style={[styles.actionPill, styles.actionPillLocked]}>
+                      <Text style={styles.actionPillTextLocked}>₹{item.price}</Text>
+                      <Ionicons name="chevron-down" size={14} color="#92400E" />
+                    </View>
+                  ) : (
+                    <View style={[styles.actionPill, styles.actionPillOpen]}>
+                      <Text style={styles.actionPillTextOpen}>Open</Text>
+                      <Ionicons name="chevron-down" size={14} color="#1E1E1E" />
+                    </View>
+                  )}
                 </View>
               </View>
             </View>
@@ -205,7 +240,7 @@ export default function TestsScreen({ token, nav }: Props) {
         <View style={styles.modalOverlay}>
           <View style={styles.infoModalCard}>
             <View style={styles.infoModalHeader}>
-              <Text style={styles.infoModalTitle}>About Categories</Text>
+              <Text style={styles.infoModalTitle}>About Test Series</Text>
               <Pressable onPress={() => setHowItWorksVisible(false)} hitSlop={8}>
                 <Ionicons name="close" size={22} color="#1E1E1E" />
               </Pressable>
@@ -216,7 +251,7 @@ export default function TestsScreen({ token, nav }: Props) {
               <View style={{ flex: 1 }}>
                 <Text style={styles.infoStepTitle}>Full Length & Sectional Mocks</Text>
                 <Text style={styles.infoStepDesc}>
-                  Select your targeted exam category to attempt high quality mock tests curated for real exam patterns.
+                  Pick a test series to attempt high quality mock tests curated for real exam patterns.
                 </Text>
               </View>
             </View>
@@ -259,6 +294,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    flex: 1,
+  },
+  backBtn: {
+    width: 30,
+    height: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: -2,
   },
   headerLogoWrap: {
     width: 30,
@@ -267,11 +310,17 @@ const styles = StyleSheet.create({
     backgroundColor: '#1E1E1E',
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  headerLogoImg: {
+    width: 30,
+    height: 30,
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '800',
     color: '#1E1E1E',
+    flexShrink: 1,
   },
   bellBtn: {
     width: 36,
@@ -378,6 +427,17 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: NAVY,
   },
+  emptyBox: {
+    alignItems: 'center',
+    paddingVertical: 60,
+    gap: 10,
+  },
+  emptyText: {
+    fontSize: 13,
+    color: MUTED,
+    textAlign: 'center',
+    paddingHorizontal: 30,
+  },
   card: {
     backgroundColor: '#FFFFFF',
     borderRadius: 18,
@@ -385,6 +445,14 @@ const styles = StyleSheet.create({
     borderColor: '#1E1E1E',
     marginHorizontal: 16,
     marginBottom: 12,
+    overflow: 'hidden',
+  },
+  cardBanner: {
+    width: '100%',
+    height: 110,
+    backgroundColor: '#EEF1F7',
+  },
+  cardBody: {
     padding: 13,
   },
   cardMainRow: {

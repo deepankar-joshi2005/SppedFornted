@@ -5,6 +5,7 @@ export interface TestSeriesSummary {
   category: string;
   seriesId?: string;
   iconImage: string | null;
+  totalSeries: number;
   totalTests: number;
   totalQuestions: number;
   durationMinutes: number;
@@ -14,6 +15,20 @@ export interface TestSeriesSummary {
   price?: number;
   coachingPrice?: number;
   isPurchased?: boolean;
+}
+
+export interface SeriesByCategoryItem {
+  seriesId: string;
+  title: string;
+  bannerImage: string | null;
+  totalTests: number;
+  totalQuestions: number;
+  durationMinutes: number;
+  difficulty: string;
+  percentCompleted: number;
+  isPaid: boolean;
+  price: number;
+  isPurchased: boolean;
 }
 
 export interface TestListItem {
@@ -113,6 +128,36 @@ export const getTestsByCategory = async (
   try {
     const response = await api.get<TestListResponse>(
       `/tests/category/${category}`,
+      authHeaders(token)
+    );
+    return response.data;
+  } catch (error) {
+    throw new Error(extractErrorMessage(error, 'Failed to load tests. Please try again.'));
+  }
+};
+
+export const getSeriesByCategory = async (
+  token: string,
+  category: string
+): Promise<SeriesByCategoryItem[]> => {
+  try {
+    const response = await api.get<SeriesByCategoryItem[]>(
+      `/tests/category/${category}/series`,
+      authHeaders(token)
+    );
+    return response.data;
+  } catch (error) {
+    throw new Error(extractErrorMessage(error, 'Failed to load test series. Please try again.'));
+  }
+};
+
+export const getTestsBySeries = async (
+  token: string,
+  seriesId: string
+): Promise<TestListResponse> => {
+  try {
+    const response = await api.get<TestListResponse>(
+      `/tests/series/${seriesId}`,
       authHeaders(token)
     );
     return response.data;

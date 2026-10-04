@@ -3,7 +3,8 @@ export type TabKey = 'home' | 'tests' | 'pyps' | 'ebook' | 'results' | 'profile'
 export type Route =
   | { name: 'tab'; tab: TabKey }
   | { name: 'categories' }
-  | { name: 'testList'; category?: string; seriesId?: string; seriesIcon?: string }
+  | { name: 'seriesList'; category: string; categoryIcon?: string }
+  | { name: 'testList'; category?: string; seriesId?: string; testSeriesId?: string; seriesIcon?: string }
   | { name: 'testInstructions'; testId: string }
   | { name: 'testTaking'; attemptId: string; testId: string; language?: 'Hindi' | 'English' }
   | { name: 'testResult'; attemptId: string }
@@ -23,7 +24,9 @@ export type Route =
   | { name: 'sectionalCategories' }
   | { name: 'myCourses' }
   | { name: 'liveClasses' }
-  | { name: 'socialMedia' };
+  | { name: 'socialMedia' }
+  | { name: 'myOrders' }
+  | { name: 'myDownloads' };
 
 export type Nav = {
   push: (route: Route) => void;
@@ -36,6 +39,7 @@ export const routeTab = (route: Route): TabKey | null => {
   switch (route.name) {
     case 'tab':
       return route.tab;
+    case 'seriesList':
     case 'testList':
       return 'tests';
     case 'testResult':

@@ -1,11 +1,16 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AdminHeader from '../../components/admin/AdminHeader';
 import PrimaryButton from '../../components/PrimaryButton';
 import { AdminNav } from '../../navigation/adminTypes';
-import { AdminCategoryDetail, getCategoryDetail } from '../../services/admin/categories.service';
-import { GOLD, MUTED, NAVY } from '../../theme/colors';
+import {
+  AdminCategoryDetail,
+  AdminCategorySeriesItem,
+  getCategoryDetail,
+} from '../../services/admin/categories.service';
+import { deleteSeries } from '../../services/admin/series.service';
+import { ERROR, GOLD, MUTED, NAVY } from '../../theme/colors';
 
 type Props = {
   token: string;
@@ -34,6 +39,29 @@ export default function AdminCategoryDetailScreen({ token, categoryId, nav }: Pr
   useEffect(() => {
     load();
   }, [load]);
+
+  const handleDelete = (series: AdminCategorySeriesItem) => {
+    const message =
+      series.status === 'published'
+        ? `"${series.title}" is published and currently visible to students. Deleting will remove it and all its tests/questions immediately. This cannot be undone.`
+        : `Delete "${series.title}"? This will permanently remove it along with all its tests and questions. This cannot be undone.`;
+
+    Alert.alert('Delete Test Series', message, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await deleteSeries(token, series.id);
+            load();
+          } catch (err) {
+            Alert.alert('Failed to delete', err instanceof Error ? err.message : '');
+          }
+        },
+      },
+    ]);
+  };
 
   return (
     <SafeAreaView style={styles.root} edges={['top']}>
@@ -80,11 +108,7 @@ export default function AdminCategoryDetailScreen({ token, categoryId, nav }: Pr
             <Text style={styles.emptyText}>No test series in this category yet.</Text>
           )}
           {detail.series.map((s) => (
-            <Pressable
-              key={s.id}
-              style={styles.card}
-              onPress={() => nav.push({ name: 'seriesTests', seriesId: s.id })}
-            >
+            <View key={s.id} style={styles.card}>
               <View style={styles.cardTextWrap}>
                 <View style={styles.cardTitleRow}>
                   <Text style={styles.cardTitle}>{s.title}</Text>
@@ -98,22 +122,36 @@ export default function AdminCategoryDetailScreen({ token, categoryId, nav }: Pr
                   {s.totalTests} Tests • {s.totalQuestions} Questions
                 </Text>
               </View>
-              <View
-                style={[
-                  styles.statusBadge,
-                  s.status === 'published' ? styles.statusPublished : styles.statusDraft,
-                ]}
-              >
-                <Text
+
+              <View style={styles.cardFooter}>
+                <View
                   style={[
-                    styles.statusText,
-                    s.status === 'published' ? styles.statusTextPublished : styles.statusTextDraft,
+                    styles.statusBadge,
+                    s.status === 'published' ? styles.statusPublished : styles.statusDraft,
                   ]}
                 >
-                  {s.status === 'published' ? 'Published' : 'Draft'}
-                </Text>
+                  <Text
+                    style={[
+                      styles.statusText,
+                      s.status === 'published' ? styles.statusTextPublished : styles.statusTextDraft,
+                    ]}
+                  >
+                    {s.status === 'published' ? 'Published' : 'Draft'}
+                  </Text>
+                </View>
+                <View style={styles.linkRow}>
+                  <Pressable onPress={() => nav.push({ name: 'seriesTests', seriesId: s.id })}>
+                    <Text style={styles.linkText}>Manage Tests</Text>
+                  </Pressable>
+                  <Pressable onPress={() => nav.push({ name: 'createSeriesStep1', seriesId: s.id })}>
+                    <Text style={styles.linkText}>Edit</Text>
+                  </Pressable>
+                  <Pressable onPress={() => handleDelete(s)}>
+                    <Text style={[styles.linkText, { color: ERROR }]}>Delete</Text>
+                  </Pressable>
+                </View>
               </View>
-            </Pressable>
+            </View>
           ))}
 
           <PrimaryButton
@@ -148,9 +186,6 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 15, fontWeight: '800', color: NAVY, marginBottom: 12 },
   emptyText: { fontSize: 12.5, color: MUTED, marginBottom: 16 },
   card: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     backgroundColor: '#FFFFFF',
     borderRadius: 14,
     padding: 14,
@@ -164,6 +199,17 @@ const styles = StyleSheet.create({
   cardMeta: { fontSize: 11.5, color: MUTED, marginTop: 3 },
   paidTag: { backgroundColor: '#FEF3C7', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
   paidTagText: { fontSize: 10, fontWeight: '800', color: '#92400E' },
+  cardFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F0EFE9',
+  },
+  linkRow: { flexDirection: 'row', gap: 14 },
+  linkText: { fontSize: 12, fontWeight: '700', color: NAVY },
   statusBadge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10 },
   statusPublished: { backgroundColor: '#E1F5EA' },
   statusDraft: { backgroundColor: '#FDF1DC' },

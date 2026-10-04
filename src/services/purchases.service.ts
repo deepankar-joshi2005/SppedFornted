@@ -17,6 +17,16 @@ export interface VerifyPaymentPayload {
   testSeriesId: string;
 }
 
+export interface MyOrderItem {
+  purchaseId: string;
+  seriesId: string;
+  title: string;
+  category: string;
+  bannerImage: string | null;
+  amountPaid: number;
+  purchasedAt: string;
+}
+
 export interface RevenueSummary {
   totalRevenue: number;
   totalSalesCount: number;
@@ -69,6 +79,15 @@ export const getMyPurchases = async (token: string): Promise<string[]> => {
     return res.data.purchasedSeriesIds || [];
   } catch (err) {
     return [];
+  }
+};
+
+export const getMyOrders = async (token: string): Promise<MyOrderItem[]> => {
+  try {
+    const res = await api.get('/purchases/my-orders', authHeaders(token));
+    return res.data;
+  } catch (err) {
+    throw new Error(extractError(err, 'Failed to load your orders.'));
   }
 };
 

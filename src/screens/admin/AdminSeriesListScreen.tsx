@@ -178,6 +178,9 @@ export default function AdminSeriesListScreen({ token, nav }: Props) {
                 <Pressable onPress={() => nav.push({ name: 'seriesTests', seriesId: item.id })}>
                   <Text style={styles.linkText}>Manage Tests</Text>
                 </Pressable>
+                <Pressable onPress={() => nav.push({ name: 'createSeriesStep1', seriesId: item.id })}>
+                  <Text style={styles.linkText}>Edit</Text>
+                </Pressable>
                 <Pressable onPress={() => handleDuplicate(item.id)}>
                   <Text style={styles.linkText}>Duplicate</Text>
                 </Pressable>
