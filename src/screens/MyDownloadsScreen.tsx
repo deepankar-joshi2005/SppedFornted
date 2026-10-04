@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { resolveAssetUrl } from '../config/api';
 import { Nav } from '../navigation/types';
 import { DownloadedEbookItem, getMyDownloadedEbooks } from '../services/ebook.service';
+import { DownloadedPyqItem, getMyDownloadedPyqs } from '../services/pyq.service';
 import { ERROR, MUTED, NAVY } from '../theme/colors';
 
 type Props = {
@@ -23,6 +24,7 @@ type Props = {
 
 export default function MyDownloadsScreen({ token, nav }: Props) {
   const [ebooks, setEbooks] = useState<DownloadedEbookItem[] | null>(null);
+  const [papers, setPapers] = useState<DownloadedPyqItem[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
@@ -32,8 +34,12 @@ export default function MyDownloadsScreen({ token, nav }: Props) {
       isRefresh ? setRefreshing(true) : setLoading(true);
       setError('');
       try {
-        const result = await getMyDownloadedEbooks(token);
-        setEbooks(result);
+        const [ebookResult, paperResult] = await Promise.all([
+          getMyDownloadedEbooks(token),
+          getMyDownloadedPyqs(token),
+        ]);
+        setEbooks(ebookResult);
+        setPapers(paperResult);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load your downloads.');
       } finally {
@@ -47,10 +53,18 @@ export default function MyDownloadsScreen({ token, nav }: Props) {
     load();
   }, [load]);
 
-  const handleOpen = (item: DownloadedEbookItem) => {
+  const handleOpenEbook = (item: DownloadedEbookItem) => {
     if (item.isLocked || !item.fileUrl) return;
     nav.push({ name: 'pdfViewer', title: item.title, fileUrl: item.fileUrl });
   };
+
+  const handleOpenPaper = (item: DownloadedPyqItem) => {
+    if (item.isLocked || !item.fileUrl) return;
+    nav.push({ name: 'pdfViewer', title: item.title, fileUrl: item.fileUrl });
+  };
+
+  const loaded = !!ebooks && !!papers;
+  const isEmpty = loaded && ebooks!.length === 0 && papers!.length === 0;
 
   return (
     <SafeAreaView style={styles.root} edges={['top', 'bottom']}>
@@ -68,51 +82,88 @@ export default function MyDownloadsScreen({ token, nav }: Props) {
           <RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={NAVY} />
         }
       >
-        {loading && !ebooks && (
+        {loading && !loaded && (
           <View style={styles.loadingBox}>
             <ActivityIndicator color={NAVY} size="large" />
           </View>
         )}
 
-        {!!error && !ebooks && (
+        {!!error && !loaded && (
           <View style={styles.errorBox}>
             <Text style={styles.errorText}>{error}</Text>
           </View>
         )}
 
-        {ebooks?.length === 0 && (
+        {isEmpty && (
           <View style={styles.emptyBox}>
             <Ionicons name="download-outline" size={32} color={MUTED} />
-            <Text style={styles.emptyText}>You haven't downloaded any e-books yet.</Text>
+            <Text style={styles.emptyText}>You haven't downloaded anything yet.</Text>
           </View>
         )}
 
-        {ebooks?.map((item) => (
-          <Pressable key={item.id} style={styles.card} onPress={() => handleOpen(item)}>
-            <View style={styles.cardLogoBadge}>
-              {item.coverImage || item.categoryIcon ? (
-                <Image
-                  source={{ uri: resolveAssetUrl(item.coverImage || item.categoryIcon) }}
-                  style={styles.cardLogoImg}
-                  resizeMode="contain"
-                />
-              ) : (
-                <Ionicons name="book-outline" size={22} color={NAVY} />
-              )}
-            </View>
+        {!!ebooks?.length && (
+          <>
+            <Text style={styles.sectionTitle}>E-Books</Text>
+            {ebooks.map((item) => (
+              <Pressable key={item.id} style={styles.card} onPress={() => handleOpenEbook(item)}>
+                <View style={styles.cardLogoBadge}>
+                  {item.coverImage || item.categoryIcon ? (
+                    <Image
+                      source={{ uri: resolveAssetUrl(item.coverImage || item.categoryIcon) }}
+                      style={styles.cardLogoImg}
+                      resizeMode="contain"
+                    />
+                  ) : (
+                    <Ionicons name="book-outline" size={22} color={NAVY} />
+                  )}
+                </View>
 
-            <View style={styles.cardMiddleContent}>
-              <Text style={styles.cardTitle} numberOfLines={1}>
-                {item.title}
-              </Text>
-              <Text style={styles.cardSubText} numberOfLines={1}>
-                {item.author ? `By ${item.author}` : item.category}
-              </Text>
-            </View>
+                <View style={styles.cardMiddleContent}>
+                  <Text style={styles.cardTitle} numberOfLines={1}>
+                    {item.title}
+                  </Text>
+                  <Text style={styles.cardSubText} numberOfLines={1}>
+                    {item.author ? `By ${item.author}` : item.category}
+                  </Text>
+                </View>
 
-            <Ionicons name="chevron-forward" size={18} color={MUTED} />
-          </Pressable>
-        ))}
+                <Ionicons name="chevron-forward" size={18} color={MUTED} />
+              </Pressable>
+            ))}
+          </>
+        )}
+
+        {!!papers?.length && (
+          <>
+            <Text style={styles.sectionTitle}>Previous Year Papers</Text>
+            {papers.map((item) => (
+              <Pressable key={item.id} style={styles.card} onPress={() => handleOpenPaper(item)}>
+                <View style={styles.cardLogoBadge}>
+                  {item.categoryIcon ? (
+                    <Image
+                      source={{ uri: resolveAssetUrl(item.categoryIcon) }}
+                      style={styles.cardLogoImg}
+                      resizeMode="contain"
+                    />
+                  ) : (
+                    <Ionicons name="document-text-outline" size={22} color={NAVY} />
+                  )}
+                </View>
+
+                <View style={styles.cardMiddleContent}>
+                  <Text style={styles.cardTitle} numberOfLines={1}>
+                    {item.title}
+                  </Text>
+                  <Text style={styles.cardSubText} numberOfLines={1}>
+                    {item.examName} • {item.year}
+                  </Text>
+                </View>
+
+                <Ionicons name="chevron-forward" size={18} color={MUTED} />
+              </Pressable>
+            ))}
+          </>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -147,6 +198,7 @@ const styles = StyleSheet.create({
   errorText: { color: ERROR, fontSize: 13, textAlign: 'center' },
   emptyBox: { alignItems: 'center', paddingVertical: 60, gap: 10 },
   emptyText: { fontSize: 13, color: MUTED, textAlign: 'center', paddingHorizontal: 20 },
+  sectionTitle: { fontSize: 13, fontWeight: '800', color: NAVY, marginBottom: 10, marginTop: 4 },
   card: {
     flexDirection: 'row',
     alignItems: 'center',

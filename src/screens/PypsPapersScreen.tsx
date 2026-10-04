@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Image,
   Modal,
   Pressable,
@@ -15,9 +16,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import RazorpayCheckoutModal from '../components/RazorpayCheckoutModal';
 import { resolveAssetUrl } from '../config/api';
 import { Nav } from '../navigation/types';
-import { getPyqs, PyqItem } from '../services/pyq.service';
+import { getPyqs, markPyqDownloaded, PyqItem } from '../services/pyq.service';
 import { ContentOrderResponse, createContentOrder, verifyContentPayment } from '../services/contentPurchases.service';
 import { getStreakDays } from '../services/dashboard.service';
+import { downloadAndSharePdf } from '../utils/pdfDownload';
 import { ERROR, MUTED, NAVY } from '../theme/colors';
 
 type Props = {
@@ -47,6 +49,7 @@ export default function PypsPapersScreen({ token, category, examName, nav }: Pro
   const [buyError, setBuyError] = useState('');
   const [razorpayOrder, setRazorpayOrder] = useState<ContentOrderResponse | null>(null);
   const [razorpayVisible, setRazorpayVisible] = useState(false);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   const load = useCallback(
     async (isRefresh?: boolean) => {
@@ -86,6 +89,27 @@ export default function PypsPapersScreen({ token, category, examName, nav }: Pro
     }
     if (paper.fileUrl) {
       nav.push({ name: 'pdfViewer', title: paper.title, fileUrl: paper.fileUrl });
+    }
+  };
+
+  const handleDownload = async (paper: PyqItem) => {
+    if (!paper.fileUrl || downloadingId) return;
+    const absoluteUrl = resolveAssetUrl(paper.fileUrl);
+    if (!absoluteUrl) return;
+    setDownloadingId(paper.id);
+    try {
+      await downloadAndSharePdf(absoluteUrl, paper.title);
+      markPyqDownloaded(token, paper.id);
+      setPapers((prev) =>
+        prev ? prev.map((p) => (p.id === paper.id ? { ...p, isDownloaded: true } : p)) : prev
+      );
+    } catch (err) {
+      Alert.alert(
+        'Download Failed',
+        err instanceof Error ? err.message : 'Could not download this paper. Please try again.'
+      );
+    } finally {
+      setDownloadingId(null);
     }
   };
 
@@ -261,10 +285,28 @@ export default function PypsPapersScreen({ token, category, examName, nav }: Pro
                     <Ionicons name="chevron-down" size={14} color="#92400E" />
                   </View>
                 ) : (
-                  <View style={[styles.actionPill, styles.actionPillOpen]}>
-                    <Text style={styles.actionPillTextOpen}>Open</Text>
-                    <Ionicons name="chevron-down" size={14} color="#1E1E1E" />
-                  </View>
+                  <>
+                    <Pressable
+                      style={styles.downloadBtn}
+                      onPress={() => handleDownload(paper)}
+                      disabled={downloadingId === paper.id}
+                      hitSlop={6}
+                    >
+                      {downloadingId === paper.id ? (
+                        <ActivityIndicator size="small" color={NAVY} />
+                      ) : (
+                        <Ionicons
+                          name={paper.isDownloaded ? 'checkmark-circle' : 'download-outline'}
+                          size={18}
+                          color={paper.isDownloaded ? '#166534' : NAVY}
+                        />
+                      )}
+                    </Pressable>
+                    <View style={[styles.actionPill, styles.actionPillOpen]}>
+                      <Text style={styles.actionPillTextOpen}>Open</Text>
+                      <Ionicons name="chevron-down" size={14} color="#1E1E1E" />
+                    </View>
+                  </>
                 )}
               </View>
             </Pressable>
@@ -552,6 +594,18 @@ const styles = StyleSheet.create({
   },
   cardRightAction: {
     marginLeft: 8,
+    alignItems: 'flex-end',
+    gap: 6,
+  },
+  downloadBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   actionPill: {
     flexDirection: 'row',
