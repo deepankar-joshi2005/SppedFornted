@@ -20,6 +20,19 @@ export interface AuthResponse {
   token: string;
 }
 
+export interface SendOtpResponse {
+  message: string;
+  target: string;
+  type: 'email' | 'mobile';
+}
+
+export interface VerifyOtpResponse {
+  message: string;
+  verificationToken: string;
+  target: string;
+  type: 'email' | 'mobile';
+}
+
 export interface RegisterPayload {
   name: string;
   email: string;
@@ -27,10 +40,13 @@ export interface RegisterPayload {
   password: string;
   city: string;
   state: string;
+  verificationToken?: string;
 }
 
 export interface LoginPayload {
-  email: string;
+  email?: string;
+  mobile?: string;
+  identifier?: string;
   password: string;
 }
 
@@ -39,6 +55,24 @@ const extractErrorMessage = (error: unknown, fallback: string): string => {
     return error.response.data.message;
   }
   return fallback;
+};
+
+export const sendOtp = async (target: string): Promise<SendOtpResponse> => {
+  try {
+    const response = await api.post<SendOtpResponse>('/auth/send-otp', { target });
+    return response.data;
+  } catch (error) {
+    throw new Error(extractErrorMessage(error, 'Failed to send OTP. Please try again.'));
+  }
+};
+
+export const verifyOtp = async (target: string, otp: string): Promise<VerifyOtpResponse> => {
+  try {
+    const response = await api.post<VerifyOtpResponse>('/auth/verify-otp', { target, otp });
+    return response.data;
+  } catch (error) {
+    throw new Error(extractErrorMessage(error, 'Invalid or expired OTP. Please try again.'));
+  }
 };
 
 export const registerUser = async (payload: RegisterPayload): Promise<AuthResponse> => {

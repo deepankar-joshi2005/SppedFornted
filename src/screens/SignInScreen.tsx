@@ -5,7 +5,7 @@ import FormInput from '../components/FormInput';
 import PrimaryButton from '../components/PrimaryButton';
 import { loginUser, AuthResponse } from '../services/auth.service';
 import { GOLD } from '../theme/colors';
-import { isValidEmail } from '../utils/validation';
+import { isValidEmail, isValidMobile } from '../utils/validation';
 
 type Props = {
   onLoginSuccess: (result: AuthResponse) => void;
@@ -14,10 +14,10 @@ type Props = {
   initialEmail?: string;
 };
 
-type Errors = Partial<Record<'email' | 'password', string>>;
+type Errors = Partial<Record<'identifier' | 'password', string>>;
 
 export default function SignInScreen({ onLoginSuccess, onGoToSignUp, onForgotPassword, initialEmail }: Props) {
-  const [email, setEmail] = useState(initialEmail ?? '');
+  const [identifier, setIdentifier] = useState(initialEmail ?? '');
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState<Errors>({});
   const [apiError, setApiError] = useState('');
@@ -25,9 +25,16 @@ export default function SignInScreen({ onLoginSuccess, onGoToSignUp, onForgotPas
 
   const validate = (): boolean => {
     const next: Errors = {};
-    if (!email.trim()) next.email = 'Email is required';
-    else if (!isValidEmail(email)) next.email = 'Enter a valid email address';
-    if (!password) next.password = 'Password is required';
+    const val = identifier.trim();
+    if (!val) {
+      next.identifier = 'Email or Mobile number is required';
+    } else if (!isValidEmail(val) && !isValidMobile(val)) {
+      next.identifier = 'Enter a valid Email or 10-digit Mobile number';
+    }
+
+    if (!password) {
+      next.password = 'Password is required';
+    }
 
     setErrors(next);
     return Object.keys(next).length === 0;
@@ -39,7 +46,7 @@ export default function SignInScreen({ onLoginSuccess, onGoToSignUp, onForgotPas
 
     setLoading(true);
     try {
-      const result = await loginUser({ email: email.trim(), password });
+      const result = await loginUser({ identifier: identifier.trim(), password });
       onLoginSuccess(result);
     } catch (error) {
       setApiError(error instanceof Error ? error.message : 'Login failed. Please try again.');
@@ -63,11 +70,11 @@ export default function SignInScreen({ onLoginSuccess, onGoToSignUp, onForgotPas
       )}
 
       <FormInput
-        icon="mail-outline"
-        placeholder="Email Address"
-        value={email}
-        onChangeText={setEmail}
-        error={errors.email}
+        icon="person-outline"
+        placeholder="Email Address or Mobile Number"
+        value={identifier}
+        onChangeText={setIdentifier}
+        error={errors.identifier}
         autoCapitalize="none"
         keyboardType="email-address"
       />
