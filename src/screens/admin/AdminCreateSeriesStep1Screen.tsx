@@ -40,6 +40,7 @@ export default function AdminCreateSeriesStep1Screen({
   const [description, setDescription] = useState('');
   const [shortDescription, setShortDescription] = useState('');
   const [bannerImage, setBannerImage] = useState<string | null>(null);
+  const [iconImage, setIconImage] = useState<string | null>(null);
   const [difficulty, setDifficulty] = useState('Mixed');
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(!!seriesId);
@@ -62,6 +63,7 @@ export default function AdminCreateSeriesStep1Screen({
         setDescription(detail.description);
         setShortDescription(detail.shortDescription);
         setBannerImage(detail.bannerImage);
+        setIconImage(detail.iconImage);
         setDifficulty(detail.difficulty);
       } catch (err) {
         Alert.alert('Failed to load test series', err instanceof Error ? err.message : '');
@@ -89,6 +91,7 @@ export default function AdminCreateSeriesStep1Screen({
         description,
         shortDescription,
         bannerImage,
+        iconImage,
         difficulty,
       };
       const result = seriesId
@@ -172,6 +175,19 @@ export default function AdminCreateSeriesStep1Screen({
             aspectRatio={16 / 9}
           />
 
+          <Text style={[styles.label, { marginTop: 18 }]}>
+            {isSectional ? 'Upload Icon (shown on category & its tests)' : 'Upload Icon (Square)'}
+          </Text>
+          <View style={styles.iconPickerWrap}>
+            <ImagePickerBox
+              token={token}
+              label="Icon"
+              value={iconImage}
+              onChange={setIconImage}
+              aspectRatio={1}
+            />
+          </View>
+
           <Text style={[styles.label, { marginTop: 18 }]}>Difficulty Level</Text>
           <View style={styles.pillRow}>
             {DIFFICULTIES.map((d) => (
@@ -200,6 +216,7 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#F5F4EF' },
   scrollContent: { padding: 18, paddingBottom: 40 },
   label: { fontSize: 12.5, fontWeight: '700', color: NAVY, marginBottom: 8, marginTop: 4 },
+  iconPickerWrap: { width: 110 },
   pillRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 14 },
   pill: {
     paddingHorizontal: 14,

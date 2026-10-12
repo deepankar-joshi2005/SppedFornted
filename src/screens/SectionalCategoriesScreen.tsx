@@ -158,16 +158,18 @@ export default function SectionalCategoriesScreen({ token, nav }: Props) {
               nav.push({
                 name: 'testList',
                 seriesId: cat.seriesId,
-                seriesIcon: cat.bannerImage ? resolveAssetUrl(cat.bannerImage) : undefined,
+                seriesIcon: cat.iconImage || cat.bannerImage
+                  ? resolveAssetUrl((cat.iconImage || cat.bannerImage) as string)
+                  : undefined,
               })
             }
           >
             <View style={styles.cardMainRow}>
               {/* Left Badge */}
               <View style={styles.cardLogoBadge}>
-                {cat.bannerImage ? (
+                {cat.iconImage || cat.bannerImage ? (
                   <Image
-                    source={{ uri: resolveAssetUrl(cat.bannerImage) }}
+                    source={{ uri: resolveAssetUrl((cat.iconImage || cat.bannerImage) as string) }}
                     style={styles.cardLogoImg}
                     resizeMode="contain"
                   />

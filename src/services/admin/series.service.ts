@@ -37,6 +37,7 @@ export interface AdminSeriesDetail {
   description: string;
   shortDescription: string;
   bannerImage: string | null;
+  iconImage: string | null;
   totalPapers: number;
   unitLabel: string;
   totalQuestions: number;
@@ -64,6 +65,7 @@ export interface CreateSeriesPayload {
   description?: string;
   shortDescription?: string;
   bannerImage?: string | null;
+  iconImage?: string | null;
   difficulty?: string;
 }
 
@@ -74,6 +76,7 @@ export interface UpdateSeriesPayload {
   description?: string;
   shortDescription?: string;
   bannerImage?: string | null;
+  iconImage?: string | null;
   difficulty?: string;
   totalPapers?: number;
   validityMonths?: number;

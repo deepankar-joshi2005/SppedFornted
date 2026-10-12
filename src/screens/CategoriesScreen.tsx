@@ -87,7 +87,13 @@ export default function CategoriesScreen({ token, nav }: Props) {
             <Pressable
               key={cat.name}
               style={styles.card}
-              onPress={() => nav.push({ name: 'testList', category: cat.name })}
+              onPress={() =>
+                nav.push({
+                  name: 'seriesList',
+                  category: cat.name,
+                  categoryIcon: cat.iconImage ? resolveAssetUrl(cat.iconImage) : undefined,
+                })
+              }
             >
               <View style={styles.iconCircle}>
                 {cat.iconImage ? (

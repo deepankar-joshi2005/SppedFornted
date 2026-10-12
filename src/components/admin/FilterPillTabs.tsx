@@ -24,7 +24,12 @@ export default function FilterPillTabs({ options, active, onChange }: Props) {
             style={[styles.pill, isActive && styles.pillActive]}
             onPress={() => onChange(opt.key)}
           >
-            <Text style={[styles.text, isActive && styles.textActive]}>{opt.label}</Text>
+            <Text
+              style={[styles.text, isActive && styles.textActive]}
+              numberOfLines={1}
+            >
+              {opt.label}
+            </Text>
           </Pressable>
         );
       })}
@@ -35,27 +40,30 @@ export default function FilterPillTabs({ options, active, onChange }: Props) {
 const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     gap: 10,
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
   pill: {
+    flexShrink: 0,
+    minHeight: 36,
+    justifyContent: 'center',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
     backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#EDEBE4',
+    borderWidth: 1.5,
+    borderColor: '#D9D6CC',
   },
   pillActive: {
     backgroundColor: NAVY,
     borderColor: NAVY,
   },
   text: {
-    fontSize: 12.5,
+    fontSize: 13,
     fontWeight: '700',
-    color: MUTED,
+    color: NAVY,
   },
   textActive: {
     color: '#FFFFFF',

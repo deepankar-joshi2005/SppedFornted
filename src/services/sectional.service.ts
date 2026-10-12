@@ -7,6 +7,7 @@ export interface SectionalCategoryItem {
   title: string;
   category: string;
   bannerImage: string | null;
+  iconImage: string | null;
   totalTests: number;
   totalQuestions: number;
   isPaid: boolean;

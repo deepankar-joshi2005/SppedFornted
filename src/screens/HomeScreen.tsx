@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -8,6 +9,7 @@ import {
   FlatList,
   Image,
   Linking,
+  PanResponder,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -34,9 +36,36 @@ import { getUpcomingMocks, UpcomingMockItem } from '../services/upcomingMock.ser
 import { useLanguage } from '../context/LanguageContext';
 import { CARD_SHADOW, GOLD, GOLD_TINT, MUTED, NAVY, SOFT_SHADOW } from '../theme/colors';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 const WHATSAPP_SUPPORT_NUMBER = '919997080097';
+
+// Draggable WhatsApp support bubble — position persists per student across app
+// restarts; the hidden state is session-only (resets to visible on next cold start).
+const FAB_SIZE = 54;
+const FAB_MARGIN_RIGHT = 16;
+const FAB_MARGIN_BOTTOM = 40;
+const FAB_DRAG_THRESHOLD = 6; // px of movement before a touch counts as a drag, not a tap
+const FAB_LONG_PRESS_MS = 450; // hold this long without moving to trigger the hide prompt
+
+const fabPositionStorageKey = (userId: string) => `speed_whatsapp_fab_pos_${userId}`;
+
+function clampFabPosition(x: number, y: number, bounds: { width: number; height: number }) {
+  const maxX = Math.max(0, bounds.width - FAB_SIZE);
+  const maxY = Math.max(0, bounds.height - FAB_SIZE);
+  return {
+    x: Math.min(Math.max(x, 0), maxX),
+    y: Math.min(Math.max(y, 0), maxY),
+  };
+}
+
+function getDefaultFabPosition(bounds: { width: number; height: number }) {
+  return clampFabPosition(
+    bounds.width - FAB_SIZE - FAB_MARGIN_RIGHT,
+    bounds.height - FAB_SIZE - FAB_MARGIN_BOTTOM,
+    bounds
+  );
+}
 
 type Props = {
   user: AuthUser;
@@ -223,6 +252,128 @@ export default function HomeScreen({ user, token, nav }: Props) {
     });
   }, []);
 
+  // ── Draggable WhatsApp support bubble ───────────────────────────────────
+  const [containerSize, setContainerSize] = useState({ width: SCREEN_WIDTH, height: SCREEN_HEIGHT });
+  const [fabPos, setFabPos] = useState<{ x: number; y: number } | null>(null);
+  const [fabVisible, setFabVisible] = useState(true);
+
+  const containerSizeRef = useRef(containerSize);
+  const fabPosRef = useRef<{ x: number; y: number } | null>(null);
+  const userIdRef = useRef(user.id);
+  const fabDragRef = useRef({ startX: 0, startY: 0, moved: false });
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressFiredRef = useRef(false);
+
+  useEffect(() => {
+    containerSizeRef.current = containerSize;
+  }, [containerSize]);
+
+  useEffect(() => {
+    userIdRef.current = user.id;
+  }, [user.id]);
+
+  // Load the last-saved position for this student (falls back to the default
+  // bottom-right spot the first time, or if nothing was ever saved).
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const bounds = containerSizeRef.current;
+      let next = getDefaultFabPosition(bounds);
+      try {
+        const stored = await AsyncStorage.getItem(fabPositionStorageKey(user.id));
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (typeof parsed?.x === 'number' && typeof parsed?.y === 'number') {
+            next = clampFabPosition(parsed.x, parsed.y, bounds);
+          }
+        }
+      } catch {
+        // best-effort — fall back to the default position
+      }
+      if (!cancelled) {
+        fabPosRef.current = next;
+        setFabPos(next);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user.id]);
+
+  // Keep the bubble on-screen if the layout size changes (e.g. rotation).
+  useEffect(() => {
+    if (!fabPosRef.current) return;
+    const next = clampFabPosition(fabPosRef.current.x, fabPosRef.current.y, containerSize);
+    if (next.x !== fabPosRef.current.x || next.y !== fabPosRef.current.y) {
+      fabPosRef.current = next;
+      setFabPos(next);
+    }
+  }, [containerSize]);
+
+  const persistFabPosition = useCallback((pos: { x: number; y: number }) => {
+    AsyncStorage.setItem(fabPositionStorageKey(userIdRef.current), JSON.stringify(pos)).catch(() => {});
+  }, []);
+
+  const fabPanResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: () => {
+        const current = fabPosRef.current ?? getDefaultFabPosition(containerSizeRef.current);
+        fabDragRef.current = { startX: current.x, startY: current.y, moved: false };
+        longPressFiredRef.current = false;
+        longPressTimerRef.current = setTimeout(() => {
+          if (!fabDragRef.current.moved) {
+            longPressFiredRef.current = true;
+            Alert.alert(
+              'Hide WhatsApp support?',
+              "It'll come back the next time you open the app.",
+              [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Hide', style: 'destructive', onPress: () => setFabVisible(false) },
+              ]
+            );
+          }
+        }, FAB_LONG_PRESS_MS);
+      },
+      onPanResponderMove: (_evt, gesture) => {
+        if (Math.abs(gesture.dx) > FAB_DRAG_THRESHOLD || Math.abs(gesture.dy) > FAB_DRAG_THRESHOLD) {
+          if (!fabDragRef.current.moved) {
+            fabDragRef.current.moved = true;
+            if (longPressTimerRef.current) {
+              clearTimeout(longPressTimerRef.current);
+              longPressTimerRef.current = null;
+            }
+          }
+          const next = clampFabPosition(
+            fabDragRef.current.startX + gesture.dx,
+            fabDragRef.current.startY + gesture.dy,
+            containerSizeRef.current
+          );
+          fabPosRef.current = next;
+          setFabPos(next);
+        }
+      },
+      onPanResponderRelease: () => {
+        if (longPressTimerRef.current) {
+          clearTimeout(longPressTimerRef.current);
+          longPressTimerRef.current = null;
+        }
+        if (fabDragRef.current.moved) {
+          if (fabPosRef.current) persistFabPosition(fabPosRef.current);
+        } else if (!longPressFiredRef.current) {
+          openWhatsAppSupport();
+        }
+      },
+      onPanResponderTerminate: () => {
+        if (longPressTimerRef.current) {
+          clearTimeout(longPressTimerRef.current);
+          longPressTimerRef.current = null;
+        }
+      },
+    })
+  ).current;
+
   const firstName = user.name.split(' ')[0];
 
   const teacherInfo = data?.teacherInfo || {
@@ -331,7 +482,12 @@ export default function HomeScreen({ user, token, nav }: Props) {
 
   return (
     <SafeAreaView style={styles.root} edges={['top']}>
-      <View style={{ flex: 1 }}>
+      <View
+        style={{ flex: 1 }}
+        onLayout={(e) =>
+          setContainerSize({ width: e.nativeEvent.layout.width, height: e.nativeEvent.layout.height })
+        }
+      >
 
       {/* ── Fixed Top Header ── */}
       <View
@@ -710,7 +866,13 @@ export default function HomeScreen({ user, token, nav }: Props) {
                           <Pressable
                             key={cat.name}
                             style={styles.trendingItem}
-                            onPress={() => nav.push({ name: 'testList', category: cat.name })}
+                            onPress={() =>
+                              nav.push({
+                                name: 'seriesList',
+                                category: cat.name,
+                                categoryIcon: cat.iconImage ? resolveAssetUrl(cat.iconImage) : undefined,
+                              })
+                            }
                           >
                             {cat.iconImage ? (
                               <View style={styles.trendingIconCircle}>
@@ -976,14 +1138,17 @@ export default function HomeScreen({ user, token, nav }: Props) {
         )}
       </ScrollView>
 
-      <Pressable
-        style={styles.whatsappFab}
-        onPress={openWhatsAppSupport}
-        hitSlop={8}
-        accessibilityLabel="Chat with us on WhatsApp"
-      >
-        <Ionicons name="logo-whatsapp" size={30} color="#FFFFFF" />
-      </Pressable>
+      {fabVisible && fabPos && (
+        <View
+          style={[styles.whatsappFab, { left: fabPos.x, top: fabPos.y }]}
+          {...fabPanResponder.panHandlers}
+          accessibilityRole="button"
+          accessibilityLabel="Chat with us on WhatsApp"
+          accessibilityHint="Drag to move this button. Press and hold to hide it."
+        >
+          <Ionicons name="logo-whatsapp" size={30} color="#FFFFFF" />
+        </View>
+      )}
       </View>
     </SafeAreaView>
   );
@@ -996,8 +1161,6 @@ const styles = StyleSheet.create({
   },
   whatsappFab: {
     position: 'absolute',
-    right: 16,
-    bottom: 40,
     width: 54,
     height: 54,
     borderRadius: 27,
