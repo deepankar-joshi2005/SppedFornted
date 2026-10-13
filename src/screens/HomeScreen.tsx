@@ -1,5 +1,4 @@
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -40,15 +39,13 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 const WHATSAPP_SUPPORT_NUMBER = '919997080097';
 
-// Draggable WhatsApp support bubble — position persists per student across app
-// restarts; the hidden state is session-only (resets to visible on next cold start).
+// Draggable WhatsApp support bubble — the dragged position (and the hidden
+// state) are session-only and reset to the default spot on the next cold start.
 const FAB_SIZE = 54;
 const FAB_MARGIN_RIGHT = 16;
 const FAB_MARGIN_BOTTOM = 40;
 const FAB_DRAG_THRESHOLD = 6; // px of movement before a touch counts as a drag, not a tap
 const FAB_LONG_PRESS_MS = 450; // hold this long without moving to trigger the hide prompt
-
-const fabPositionStorageKey = (userId: string) => `speed_whatsapp_fab_pos_${userId}`;
 
 function clampFabPosition(x: number, y: number, bounds: { width: number; height: number }) {
   const maxX = Math.max(0, bounds.width - FAB_SIZE);
@@ -274,7 +271,6 @@ export default function HomeScreen({ user, token, nav }: Props) {
 
   const containerSizeRef = useRef(containerSize);
   const fabPosRef = useRef<{ x: number; y: number } | null>(null);
-  const userIdRef = useRef(user.id);
   const fabDragRef = useRef({ startX: 0, startY: 0, moved: false });
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressFiredRef = useRef(false);
@@ -283,36 +279,12 @@ export default function HomeScreen({ user, token, nav }: Props) {
     containerSizeRef.current = containerSize;
   }, [containerSize]);
 
+  // Always start at the default bottom-right spot on a fresh app launch —
+  // any drag is only remembered for the current session, never persisted.
   useEffect(() => {
-    userIdRef.current = user.id;
-  }, [user.id]);
-
-  // Load the last-saved position for this student (falls back to the default
-  // bottom-right spot the first time, or if nothing was ever saved).
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const bounds = containerSizeRef.current;
-      let next = getDefaultFabPosition(bounds);
-      try {
-        const stored = await AsyncStorage.getItem(fabPositionStorageKey(user.id));
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          if (typeof parsed?.x === 'number' && typeof parsed?.y === 'number') {
-            next = clampFabPosition(parsed.x, parsed.y, bounds);
-          }
-        }
-      } catch {
-        // best-effort — fall back to the default position
-      }
-      if (!cancelled) {
-        fabPosRef.current = next;
-        setFabPos(next);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
+    const next = getDefaultFabPosition(containerSizeRef.current);
+    fabPosRef.current = next;
+    setFabPos(next);
   }, [user.id]);
 
   // Keep the bubble on-screen if the layout size changes (e.g. rotation).
@@ -324,10 +296,6 @@ export default function HomeScreen({ user, token, nav }: Props) {
       setFabPos(next);
     }
   }, [containerSize]);
-
-  const persistFabPosition = useCallback((pos: { x: number; y: number }) => {
-    AsyncStorage.setItem(fabPositionStorageKey(userIdRef.current), JSON.stringify(pos)).catch(() => {});
-  }, []);
 
   const fabPanResponder = useRef(
     PanResponder.create({
@@ -374,9 +342,7 @@ export default function HomeScreen({ user, token, nav }: Props) {
           clearTimeout(longPressTimerRef.current);
           longPressTimerRef.current = null;
         }
-        if (fabDragRef.current.moved) {
-          if (fabPosRef.current) persistFabPosition(fabPosRef.current);
-        } else if (!longPressFiredRef.current) {
+        if (!fabDragRef.current.moved && !longPressFiredRef.current) {
           openWhatsAppSupport();
         }
       },
@@ -898,7 +864,7 @@ export default function HomeScreen({ user, token, nav }: Props) {
                               <View style={styles.trendingIconCircle}>
                                 <Image
                                   source={{ uri: resolveAssetUrl(cat.iconImage) }}
-                                  style={{ width: 26, height: 26, borderRadius: 13 }}
+                                  style={{ width: '100%', height: '100%' }}
                                   resizeMode="cover"
                                 />
                               </View>
@@ -1690,6 +1656,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 6,
+    overflow: 'hidden',
   },
   trendingLabel: {
     fontSize: 11,
