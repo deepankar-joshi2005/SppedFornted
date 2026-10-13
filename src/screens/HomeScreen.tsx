@@ -88,7 +88,7 @@ const QUICK_GRID_ITEMS = [
   { id: 'pyp', title: 'PYPs', icon: 'document-text-outline', bg: '#FCE4EC', color: '#E91E63' },
   { id: 'myCourses', title: 'My Courses', icon: 'school-outline', bg: '#F0F4C3', color: '#7CB342' },
   { id: 'ebook', title: 'EBooks', icon: 'library-outline', bg: '#E0F2F1', color: '#00897B' },
-  { id: 'live', title: 'Live Mock Test', badge: 'LIVE', badgeBg: '#FF5252', icon: 'journal-outline', bg: '#EDE7F6', color: '#5E35B1' },
+  { id: 'live', title: 'Live Mock Test', icon: 'journal-outline', bg: '#EDE7F6', color: '#5E35B1' },
   { id: 'sec', title: 'Sectional Test', icon: 'clipboard-outline', bg: '#F3E5F5', color: '#8E24AA' },
   { id: 'liveClasses', title: 'Live Classes', icon: 'videocam-outline', bg: '#FFEBEE', color: '#D32F2F' },
   { id: 'socialTag', title: 'Social Tag', icon: 'share-social-outline', bg: '#E1F5FE', color: '#0288D1' },
@@ -205,7 +205,22 @@ export default function HomeScreen({ user, token, nav }: Props) {
         nav.push({ name: 'sectionalCategories' });
         return;
       }
+      if (id === 'live') {
+        nav.push({ name: 'liveMocks' });
+        return;
+      }
       nav.resetToTab('tests');
+    },
+    [nav]
+  );
+
+  const handleBannerPress = useCallback(
+    (item: BannerItem) => {
+      if (item.category) {
+        nav.push({ name: 'seriesList', category: item.category });
+      } else {
+        nav.resetToTab('tests');
+      }
     },
     [nav]
   );
@@ -624,7 +639,7 @@ export default function HomeScreen({ user, token, nav }: Props) {
                 setActiveBannerIndex(index);
               }}
               renderItem={({ item }) => (
-                <View style={styles.bannerCardContainer}>
+                <Pressable style={styles.bannerCardContainer} onPress={() => handleBannerPress(item)}>
                   {item.imageUrl ? (
                     <Image
                       source={{ uri: resolveAssetUrl(item.imageUrl) }}
@@ -652,7 +667,7 @@ export default function HomeScreen({ user, token, nav }: Props) {
                         </View>
                         <Pressable
                           style={styles.watchVideoBtn}
-                          onPress={() => nav.resetToTab('tests')}
+                          onPress={() => handleBannerPress(item)}
                         >
                           <Ionicons name="play-circle" size={16} color="#FFF" />
                           <Text style={styles.watchVideoText}>START NOW</Text>
@@ -660,7 +675,7 @@ export default function HomeScreen({ user, token, nav }: Props) {
                       </View>
                     </View>
                   )}
-                </View>
+                </Pressable>
               )}
             />
             {/* Banner Indicators */}
@@ -682,8 +697,8 @@ export default function HomeScreen({ user, token, nav }: Props) {
         <View style={styles.quickGridCard}>
           <View style={styles.quickGridRow}>
             {QUICK_GRID_ITEMS.slice(0, 4).map((item) => {
-              const badgeText = item.badge ?? (item.id === 'ebook' && hasNewEbooks ? 'NEW' : undefined);
-              const badgeBg = item.badgeBg ?? '#7C4DFF';
+              const badgeText = item.id === 'ebook' && hasNewEbooks ? 'NEW' : undefined;
+              const badgeBg = '#7C4DFF';
               return (
                 <Pressable
                   key={item.id}
@@ -705,17 +720,22 @@ export default function HomeScreen({ user, token, nav }: Props) {
           </View>
           <View style={styles.quickGridRow}>
             {QUICK_GRID_ITEMS.slice(4).map((item) => {
-              const badgeText = item.badge ?? (item.id === 'ebook' && hasNewEbooks ? 'NEW' : undefined);
-              const badgeBg = item.badgeBg ?? '#7C4DFF';
+              // LIVE badge: only show when there are actually live tests running
+              const isLiveBadge = item.id === 'live' && (data?.liveMocks?.length ?? 0) > 0;
+              const badgeText = isLiveBadge ? 'LIVE' : undefined;
+              const badgeBg = isLiveBadge ? '#FF5252' : '#7C4DFF';
+              const ebookBadge = item.id === 'ebook' && hasNewEbooks ? 'NEW' : undefined;
+              const resolvedBadgeText = badgeText ?? ebookBadge;
+              const resolvedBadgeBg = badgeText ? badgeBg : '#7C4DFF';
               return (
                 <Pressable
                   key={item.id}
                   style={styles.quickGridItem}
                   onPress={() => handleGridPress(item.id)}
                 >
-                  {badgeText && (
-                    <View style={[styles.gridBadge, { backgroundColor: badgeBg }]}>
-                      <Text style={styles.gridBadgeText}>{badgeText}</Text>
+                  {resolvedBadgeText && (
+                    <View style={[styles.gridBadge, { backgroundColor: resolvedBadgeBg }]}>
+                      <Text style={styles.gridBadgeText}>{resolvedBadgeText}</Text>
                     </View>
                   )}
                   <View style={[styles.gridIconBox, { backgroundColor: item.bg }]}>

@@ -24,6 +24,7 @@ import {
   deleteAdminBanner,
 } from '../../services/banner.service';
 import { uploadImage } from '../../services/admin/upload.service';
+import { getCategories } from '../../services/admin/categories.service';
 import { BannerItem } from '../../services/dashboard.service';
 import { NAVY, MUTED, SOFT_SHADOW } from '../../theme/colors';
 
@@ -34,6 +35,7 @@ type Props = {
 
 export default function AdminBannersScreen({ token, nav }: Props) {
   const [banners, setBanners] = useState<BannerItem[]>([]);
+  const [categoryNames, setCategoryNames] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingBanner, setEditingBanner] = useState<BannerItem | null>(null);
@@ -42,6 +44,7 @@ export default function AdminBannersScreen({ token, nav }: Props) {
   const [title, setTitle] = useState('');
   const [subtitle, setSubtitle] = useState('');
   const [linkUrl, setLinkUrl] = useState('');
+  const [category, setCategory] = useState('');
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
 
@@ -58,6 +61,11 @@ export default function AdminBannersScreen({ token, nav }: Props) {
   };
 
   useEffect(() => { load(); }, []);
+  useEffect(() => {
+    getCategories(token)
+      .then((cats) => setCategoryNames(cats.filter((c) => c.isActive).map((c) => c.name)))
+      .catch(() => {});
+  }, [token]);
 
   const handlePickImage = async () => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -94,7 +102,7 @@ export default function AdminBannersScreen({ token, nav }: Props) {
 
   const handleOpenAdd = () => {
     setEditingBanner(null);
-    setImageUrl(''); setTitle(''); setSubtitle(''); setLinkUrl('');
+    setImageUrl(''); setTitle(''); setSubtitle(''); setLinkUrl(''); setCategory('');
     setModalVisible(true);
   };
 
@@ -102,16 +110,25 @@ export default function AdminBannersScreen({ token, nav }: Props) {
     setEditingBanner(b);
     setImageUrl(b.imageUrl || ''); setTitle(b.title || '');
     setSubtitle(b.subtitle || ''); setLinkUrl(b.linkUrl || '');
+    setCategory(b.category || '');
     setModalVisible(true);
   };
 
   const handleSave = async () => {
+    if (!imageUrl) {
+      Alert.alert('Image required', 'Please upload a banner image first.');
+      return;
+    }
+    if (!category) {
+      Alert.alert('Category required', 'Please select which category this banner belongs to.');
+      return;
+    }
     setSaving(true);
     try {
       if (editingBanner) {
-        await updateAdminBanner(token, editingBanner.id, { imageUrl, title, subtitle, linkUrl });
+        await updateAdminBanner(token, editingBanner.id, { imageUrl, title, subtitle, linkUrl, category });
       } else {
-        await createAdminBanner(token, { imageUrl: imageUrl || '', title, subtitle, linkUrl });
+        await createAdminBanner(token, { imageUrl, title, subtitle, linkUrl, category });
       }
       setModalVisible(false);
       load();
@@ -164,6 +181,11 @@ export default function AdminBannersScreen({ token, nav }: Props) {
               <View style={styles.bannerInfo}>
                 <Text style={styles.bannerTitleText}>{item.title || 'Untitled Banner'}</Text>
                 <Text style={styles.bannerSubtitleText} numberOfLines={1}>{item.subtitle || 'No subtitle'}</Text>
+                <View style={styles.bannerCategoryTag}>
+                  <Text style={styles.bannerCategoryTagText}>
+                    {item.category || 'No category'}
+                  </Text>
+                </View>
               </View>
               <View style={styles.cardActions}>
                 <Pressable onPress={() => handleOpenEdit(item)} style={styles.iconBtn}>
@@ -203,6 +225,29 @@ export default function AdminBannersScreen({ token, nav }: Props) {
                   <Text style={styles.removeImgText}>Remove Image</Text>
                 </Pressable>
               )}
+
+              <Text style={styles.inputLabel}>Category *</Text>
+              <Text style={styles.inputHint}>
+                Tapping this banner in the student app opens this category's test series.
+              </Text>
+              <View style={styles.pillRow}>
+                {categoryNames.length === 0 && (
+                  <Text style={styles.noCategoriesText}>
+                    No categories found. Create one under Categories first.
+                  </Text>
+                )}
+                {categoryNames.map((name) => (
+                  <Pressable
+                    key={name}
+                    style={[styles.pill, category === name && styles.pillActive]}
+                    onPress={() => setCategory(name)}
+                  >
+                    <Text style={[styles.pillText, category === name && styles.pillTextActive]}>
+                      {name}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
 
               <Text style={styles.inputLabel}>Title</Text>
               <TextInput style={styles.input} placeholder="Banner Title" value={title} onChangeText={setTitle} />
@@ -246,13 +291,36 @@ const styles = StyleSheet.create({
   bannerInfo: { flex: 1, marginRight: 8 },
   bannerTitleText: { fontSize: 14, fontWeight: '800', color: NAVY },
   bannerSubtitleText: { fontSize: 12, color: MUTED, marginTop: 2 },
+  bannerCategoryTag: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#EEF2FF',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    marginTop: 6,
+  },
+  bannerCategoryTagText: { fontSize: 10.5, fontWeight: '700', color: '#4F46E5' },
   cardActions: { flexDirection: 'row', gap: 8 },
   iconBtn: { padding: 6 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 },
   modalContainer: { width: '100%', maxHeight: '90%', backgroundColor: '#FFF', borderRadius: 18, padding: 20, alignItems: 'center' },
   modalTitle: { fontSize: 17, fontWeight: '800', color: NAVY, marginBottom: 12 },
   inputLabel: { fontSize: 12, fontWeight: '700', color: NAVY, marginTop: 12, marginBottom: 4 },
+  inputHint: { fontSize: 11, color: MUTED, marginBottom: 8 },
   input: { width: '100%', borderWidth: 1, borderColor: '#CBD5E1', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, fontSize: 13, backgroundColor: '#F8FAFC' },
+  pillRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  pill: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    backgroundColor: '#F8FAFC',
+  },
+  pillActive: { backgroundColor: NAVY, borderColor: NAVY },
+  pillText: { fontSize: 12.5, fontWeight: '600', color: MUTED },
+  pillTextActive: { color: '#FFFFFF' },
+  noCategoriesText: { fontSize: 12, color: '#DC2626' },
   imagePicker: { width: '100%', height: 160, borderRadius: 12, borderWidth: 2, borderColor: '#CBD5E1', borderStyle: 'dashed', overflow: 'hidden', backgroundColor: '#F8FAFC' },
   imagePreview: { width: '100%', height: '100%' },
   imagePlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8 },

@@ -40,6 +40,7 @@ export interface BannerItem {
   subtitle: string;
   linkUrl?: string;
   tag?: string;
+  category?: string;
 }
 
 export interface TeacherInfoData {
@@ -122,6 +123,17 @@ export const getDashboard = async (token: string, category?: string): Promise<Da
     return response.data;
   } catch (error) {
     throw new Error(extractErrorMessage(error, 'Failed to load dashboard. Please try again.'));
+  }
+};
+
+export const getLiveMocks = async (token: string): Promise<LiveMockItem[]> => {
+  try {
+    const response = await api.get<LiveMockItem[]>('/live-mocks', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return response.data;
+  } catch (error) {
+    throw new Error(extractErrorMessage(error, 'Failed to load live mocks. Please try again.'));
   }
 };
 

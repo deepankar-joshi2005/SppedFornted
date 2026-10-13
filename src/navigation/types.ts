@@ -26,7 +26,8 @@ export type Route =
   | { name: 'liveClasses' }
   | { name: 'socialMedia' }
   | { name: 'myOrders' }
-  | { name: 'myDownloads' };
+  | { name: 'myDownloads' }
+  | { name: 'liveMocks' };
 
 export type Nav = {
   push: (route: Route) => void;

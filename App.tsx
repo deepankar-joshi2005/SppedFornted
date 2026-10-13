@@ -37,6 +37,7 @@ import TestSeriesListScreen from './src/screens/TestSeriesListScreen';
 import TestTakingScreen from './src/screens/TestTakingScreen';
 import TestsScreen from './src/screens/TestsScreen';
 import StudentReviewsScreen from './src/screens/StudentReviewsScreen';
+import LiveMocksScreen from './src/screens/LiveMocksScreen';
 import AdminApp from './src/screens/admin/AdminApp';
 import { AuthUser, logoutUser } from './src/services/auth.service';
 import { LanguageProvider } from './src/context/LanguageContext';
@@ -339,6 +340,7 @@ export default function App() {
             {current.name === 'myCourses' && <MyCoursesScreen nav={nav} />}
             {current.name === 'liveClasses' && <LiveClassesScreen nav={nav} />}
             {current.name === 'socialMedia' && <SocialMediaScreen token={token} nav={nav} />}
+            {current.name === 'liveMocks' && <LiveMocksScreen token={token} nav={nav} />}
           </View>
 
           {activeTab && <BottomTabBar active={activeTab} onChange={(tab) => nav.resetToTab(tab)} />}
