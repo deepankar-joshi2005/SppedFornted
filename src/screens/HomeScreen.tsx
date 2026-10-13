@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -16,6 +17,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import Svg, { Circle } from 'react-native-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import NotificationBell from '../components/NotificationBell';
 import { resolveAssetUrl } from '../config/api';
@@ -31,11 +33,39 @@ import {
 } from '../services/dashboard.service';
 import { AuthUser } from '../services/auth.service';
 import { getEbooks } from '../services/ebook.service';
+import { getSocialMediaLinks, SocialMediaLink } from '../services/socialMedia.service';
 import { getUpcomingMocks, UpcomingMockItem } from '../services/upcomingMock.service';
 import { useLanguage } from '../context/LanguageContext';
+import { getSocialPlatformMeta } from '../utils/socialPlatforms';
 import { CARD_SHADOW, GOLD, GOLD_TINT, MUTED, NAVY, SOFT_SHADOW } from '../theme/colors';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+
+// Height of the slide-down "Meet the Minds" admin panel — keep this in sync
+// with the translateY outputRange below so the panel fully hides when closed.
+const TEACHER_PANEL_HEIGHT = 220;
+
+// The 3 "Connect With Us" slots in the admin panel, each with a fallback
+// platform tried in order — e.g. YouTube isn't configured yet, so Facebook
+// fills that slot until a YouTube link exists under Social Tags.
+const SOCIAL_SLOT_PLATFORMS: string[][] = [
+  ['telegram'],
+  ['whatsapp'],
+  ['youtube', 'facebook'],
+];
+
+const VISION_TEAM_AVATARS: { bg: string }[] = [
+  { bg: '#5B8DEF' },
+  { bg: '#8E6FF0' },
+  { bg: '#2BB6A3' },
+  { bg: '#F2879C' },
+];
+
+const OFFER_ITEMS: { icon: keyof typeof Ionicons.glyphMap; color: string; label: string }[] = [
+  { icon: 'book-outline', color: '#E3573F', label: 'Free Study\nMaterials' },
+  { icon: 'trophy-outline', color: '#D9A441', label: 'Daily Mock\nTests' },
+  { icon: 'videocam-outline', color: '#3A6FF7', label: 'Live Doubt\nClasses' },
+];
 
 const WHATSAPP_SUPPORT_NUMBER = '919997080097';
 
@@ -175,6 +205,31 @@ export default function HomeScreen({ user, token, nav }: Props) {
       cancelled = true;
     };
   }, [token]);
+
+  // Social links for the "Connect With Us" pills in the admin panel —
+  // best-effort, pills for unconfigured platforms just stay hidden.
+  const [socialLinks, setSocialLinks] = useState<SocialMediaLink[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    getSocialMediaLinks(token)
+      .then((result) => {
+        if (!cancelled) setSocialLinks(result);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
+
+  const handleOpenSocialLink = useCallback(async (link: string) => {
+    try {
+      const supported = await Linking.canOpenURL(link);
+      if (!supported) throw new Error('unsupported');
+      await Linking.openURL(link);
+    } catch {
+      Alert.alert('Unable to Open', 'Please try again later.');
+    }
+  }, []);
 
   const handleGridPress = useCallback(
     (id: string) => {
@@ -363,6 +418,14 @@ export default function HomeScreen({ user, token, nav }: Props) {
     designation: 'Founder & Chief Instructor',
   };
 
+  // Always exactly these 3 slots: Telegram, WhatsApp, YouTube — pulled live
+  // from whatever's configured under Social Tags. YouTube isn't set up yet,
+  // so Facebook fills that slot until a YouTube link is added, at which point
+  // it takes over automatically and Facebook drops off on its own.
+  const featuredSocialLinks = SOCIAL_SLOT_PLATFORMS.map((candidates) =>
+    candidates.map((platform) => socialLinks.find((l) => l.platform === platform)).find((l) => !!l)
+  ).filter((l): l is SocialMediaLink => !!l);
+
   const bannersList: BannerItem[] = data?.banners?.length ? data.banners : [];
 
   const liveMocksList: LiveMockItem[] = data?.liveMocks !== undefined
@@ -454,10 +517,10 @@ export default function HomeScreen({ user, token, nav }: Props) {
 
   const headerMaxHeight = panelAnim;
 
-  // translateY: panel starts at -260 (hidden above), moves to 0 (visible)
+  // translateY: panel starts fully hidden above the header, moves to 0 (visible)
   const panelTranslateY = panelAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [-220, 0],
+    outputRange: [-TEACHER_PANEL_HEIGHT, 0],
   });
   const panelOpacity = panelAnim;
 
@@ -517,30 +580,115 @@ export default function HomeScreen({ user, token, nav }: Props) {
           pointerEvents="auto"
         >
           <View style={styles.teacherSectionContainer}>
+            <LinearGradient
+              colors={['#E4F7FB', '#D3F0E8']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={StyleSheet.absoluteFill}
+            />
+            <Svg
+              style={styles.decorDots}
+              width={64}
+              height={48}
+              viewBox="0 0 64 48"
+              pointerEvents="none"
+            >
+              {Array.from({ length: 4 }).map((_, row) =>
+                Array.from({ length: 6 }).map((_, col) => (
+                  <Circle
+                    key={`${row}-${col}`}
+                    cx={6 + col * 11}
+                    cy={6 + row * 12}
+                    r={1.6}
+                    fill="#16315C"
+                    opacity={0.14}
+                  />
+                ))
+              )}
+            </Svg>
+
             <Text style={styles.teacherHeaderTitle} numberOfLines={1}>
               Meet the Minds Behind <Text style={styles.speedEduHighlight}>Speed Education</Text>
             </Text>
-            <View style={styles.singleAdminCard}>
-              <View style={styles.adminImageWrap}>
-                {teacherInfo.imageUrl ? (
-                  <Image
-                    source={{ uri: resolveAssetUrl(teacherInfo.imageUrl) }}
-                    style={styles.adminImage}
-                  />
-                ) : (
-                  <View style={styles.adminImagePlaceholder}>
-                    <Ionicons name="person" size={36} color={NAVY} />
-                  </View>
-                )}
+
+            <View style={styles.teacherContentRow}>
+              <View style={styles.visionColumn}>
+                <Text style={styles.visionHeading}>Our Vision & Team</Text>
+                <View style={styles.avatarStackRow}>
+                  {VISION_TEAM_AVATARS.map((avatar, idx) => (
+                    <View
+                      key={idx}
+                      style={[
+                        styles.avatarStackItem,
+                        {
+                          backgroundColor: avatar.bg,
+                          marginLeft: idx === 0 ? 0 : -9,
+                          zIndex: VISION_TEAM_AVATARS.length - idx,
+                        },
+                      ]}
+                    >
+                      <Ionicons name="person" size={11} color="#FFFFFF" />
+                    </View>
+                  ))}
+                </View>
+                <Text style={styles.visionCaption}>Connect with 15+ Expert Educators</Text>
               </View>
-              <View style={styles.adminInfoTextWrap}>
+
+              <View style={styles.adminCenterCol}>
+                <View style={styles.adminImageWrap}>
+                  {teacherInfo.imageUrl ? (
+                    <Image
+                      source={{ uri: resolveAssetUrl(teacherInfo.imageUrl) }}
+                      style={styles.adminImage}
+                    />
+                  ) : (
+                    <View style={styles.adminImagePlaceholder}>
+                      <Ionicons name="person" size={24} color={NAVY} />
+                    </View>
+                  )}
+                </View>
                 <Text style={styles.adminNameText}>{teacherInfo.name.toUpperCase()}</Text>
                 <Text style={styles.adminDesignationText}>{teacherInfo.designation}</Text>
                 <Text style={styles.adminSubjectTag}>Speed Education Head</Text>
               </View>
+
+              <View style={styles.offerColumn}>
+                <Text style={styles.offerHeading}>What We Offer</Text>
+                {OFFER_ITEMS.map((item) => (
+                  <View style={styles.offerRow} key={item.label}>
+                    <View style={styles.offerCheckBox}>
+                      <Ionicons name="checkmark" size={9} color="#FFFFFF" />
+                    </View>
+                    <Ionicons name={item.icon} size={12} color={item.color} style={styles.offerIcon} />
+                    <Text style={styles.offerLabel}>{item.label}</Text>
+                  </View>
+                ))}
+              </View>
             </View>
+
+            {featuredSocialLinks.length > 0 && (
+              <>
+                <Text style={styles.connectHeading}>Connect With Us</Text>
+                <View style={styles.connectRow}>
+                  {featuredSocialLinks.map((item) => {
+                    const meta = getSocialPlatformMeta(item.platform);
+                    return (
+                      <Pressable
+                        key={item.id}
+                        style={[styles.connectPillBtn, { backgroundColor: meta.color }]}
+                        onPress={() => handleOpenSocialLink(item.link)}
+                      >
+                        <Ionicons name={meta.icon} size={12} color="#FFFFFF" />
+                        <Text style={styles.connectPillLabel}>{meta.label}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </>
+            )}
+
             <Pressable style={styles.closePanelBtn} onPress={snapClose}>
-              <Ionicons name="chevron-up" size={18} color={NAVY} />
+              <Ionicons name="chevron-up" size={16} color={NAVY} />
               <Text style={styles.closePanelText}>Close</Text>
             </Pressable>
           </View>
@@ -1179,7 +1327,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 10,
+    marginTop: 4,
     gap: 4,
   },
   closePanelText: {
@@ -1284,46 +1432,88 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    height: 220,
+    height: TEACHER_PANEL_HEIGHT,
     overflow: 'hidden',
     backgroundColor: '#F5F6FA',
     zIndex: 9,
     paddingHorizontal: 14,
   },
   teacherSectionContainer: {
-    backgroundColor: '#EBF3FE',
-    borderRadius: 16,
+    flex: 1,
+    borderRadius: 18,
     paddingHorizontal: 12,
     paddingTop: 12,
-    paddingBottom: 10,
+    paddingBottom: 12,
     alignItems: 'center',
+    justifyContent: 'space-between',
+    overflow: 'hidden',
+  },
+  decorDots: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
   },
   teacherHeaderTitle: {
-    fontSize: 13.5,
+    fontSize: 13,
     fontWeight: '800',
     color: NAVY,
     textAlign: 'center',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   speedEduHighlight: {
     color: '#1A73E8',
   },
-  singleAdminCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    padding: 12,
-    width: '98%',
+  teacherContentRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  visionColumn: {
+    flex: 1,
     alignItems: 'center',
-    ...SOFT_SHADOW,
+    paddingTop: 10,
+  },
+  visionHeading: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    color: NAVY,
+    textAlign: 'center',
+  },
+  avatarStackRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+    marginBottom: 4,
+  },
+  avatarStackItem: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  visionCaption: {
+    fontSize: 9,
+    color: MUTED,
+    textAlign: 'center',
+    lineHeight: 12,
+  },
+  adminCenterCol: {
+    width: 94,
+    alignItems: 'center',
   },
   adminImageWrap: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     overflow: 'hidden',
     borderWidth: 2,
     borderColor: '#1A73E8',
-    marginBottom: 6,
+    marginBottom: 4,
+    backgroundColor: '#FFFFFF',
   },
   adminImage: {
     width: '100%',
@@ -1336,24 +1526,87 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  adminInfoTextWrap: {
-    alignItems: 'center',
-  },
   adminNameText: {
-    fontSize: 14.5,
+    fontSize: 12.5,
     fontWeight: '800',
     color: NAVY,
+    textAlign: 'center',
   },
   adminDesignationText: {
-    fontSize: 11.5,
-    fontWeight: '600',
+    fontSize: 9.5,
+    fontWeight: '700',
     color: '#1A73E8',
     marginTop: 2,
+    textAlign: 'center',
   },
   adminSubjectTag: {
-    fontSize: 10.5,
+    fontSize: 8.5,
     color: MUTED,
     marginTop: 1,
+    textAlign: 'center',
+  },
+  offerColumn: {
+    flex: 1,
+    alignItems: 'flex-start',
+    paddingTop: 4,
+    paddingLeft: 18,
+  },
+  offerHeading: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    color: NAVY,
+    marginBottom: 6,
+  },
+  offerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  offerCheckBox: {
+    width: 13,
+    height: 13,
+    borderRadius: 4,
+    backgroundColor: '#1A73E8',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 3,
+  },
+  offerIcon: {
+    marginRight: 3,
+  },
+  offerLabel: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: NAVY,
+    flexShrink: 1,
+    lineHeight: 11.5,
+  },
+  connectHeading: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: NAVY,
+    textAlign: 'center',
+    marginTop: 4,
+  },
+  connectRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    flexWrap: 'wrap',
+    gap: 7,
+    marginTop: 5,
+  },
+  connectPillBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 14,
+  },
+  connectPillLabel: {
+    fontSize: 9.5,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   bannersSection: {
     marginTop: 6,
