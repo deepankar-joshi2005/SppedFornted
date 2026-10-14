@@ -1,5 +1,6 @@
 import { Asset } from 'expo-asset';
 import { Ionicons } from '@expo/vector-icons';
+import { Directory, File, Paths } from 'expo-file-system';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -7,6 +8,27 @@ import WebView, { WebViewMessageEvent } from 'react-native-webview';
 import { resolveAssetUrl } from '../config/api';
 import { Nav } from '../navigation/types';
 import { ERROR, NAVY } from '../theme/colors';
+
+// Signed PDF URLs carry a `?exp=...&sig=...` that's re-minted (and therefore
+// different) every time the list screen is loaded, so the browser's own HTTP
+// cache never gets a repeat hit on the same file. Caching by the stable path
+// portion (ignoring the signature) lets a re-opened PDF load from disk
+// instead of the network.
+const cacheKeyFor = (url: string): string => {
+  const withoutQuery = url.split('?')[0];
+  const segments = withoutQuery.split('/');
+  return segments[segments.length - 1] || 'document.pdf';
+};
+
+// iOS's WKWebView only grants file:// read access to the exact file it was
+// loaded with, not to arbitrary other local paths (Android has no such
+// restriction). Putting the viewer HTML and every cached PDF under this one
+// directory lets a single `allowingReadAccessToURL` cover both.
+const getPdfCacheDir = (): Directory => {
+  const dir = new Directory(Paths.cache, 'pdf-viewer-cache');
+  if (!dir.exists) dir.create({ idempotent: true });
+  return dir;
+};
 
 type Props = {
   title: string;
@@ -28,9 +50,10 @@ export default function PdfViewerScreen({ title, fileUrl, nav }: Props) {
   // ref sidesteps that resolution without affecting runtime behavior.
   const webviewRef = useRef<any>(null);
   const [localHtmlUri, setLocalHtmlUri] = useState<string | null>(null);
-  const [status, setStatus] = useState<'loading-asset' | 'loading-pdf' | 'ready' | 'error'>(
-    'loading-asset'
-  );
+  const cacheDirUriRef = useRef('');
+  const [status, setStatus] = useState<
+    'loading-asset' | 'downloading-pdf' | 'loading-pdf' | 'ready' | 'error'
+  >('loading-asset');
   const [errorMessage, setErrorMessage] = useState('');
 
   useEffect(() => {
@@ -39,9 +62,14 @@ export default function PdfViewerScreen({ title, fileUrl, nav }: Props) {
       try {
         const asset = Asset.fromModule(viewerHtml);
         await asset.downloadAsync();
-        if (!cancelled && asset.localUri) {
-          setLocalHtmlUri(asset.localUri);
-        }
+        if (cancelled || !asset.localUri) return;
+
+        const cacheDir = getPdfCacheDir();
+        cacheDirUriRef.current = cacheDir.uri;
+        const htmlFile = new File(cacheDir, 'viewer.html');
+        await new File(asset.localUri).copy(htmlFile, { overwrite: true });
+
+        if (!cancelled) setLocalHtmlUri(htmlFile.uri);
       } catch (err) {
         if (!cancelled) {
           setStatus('error');
@@ -56,13 +84,25 @@ export default function PdfViewerScreen({ title, fileUrl, nav }: Props) {
 
   const absoluteFileUrl = resolveAssetUrl(fileUrl) ?? fileUrl;
 
-  const requestLoad = useCallback(() => {
-    setStatus('loading-pdf');
+  const requestLoad = useCallback(async () => {
+    setStatus('downloading-pdf');
     setErrorMessage('');
-    const script = `window.loadPdf(${JSON.stringify(absoluteFileUrl)}, ${JSON.stringify(
-      title
-    )}); true;`;
-    webviewRef.current?.injectJavaScript(script);
+    try {
+      const cacheDir = getPdfCacheDir();
+      const cachedFile = new File(cacheDir, cacheKeyFor(absoluteFileUrl));
+      const localUri = cachedFile.exists
+        ? cachedFile.uri
+        : (await File.downloadFileAsync(absoluteFileUrl, cachedFile, { idempotent: true })).uri;
+
+      setStatus('loading-pdf');
+      const script = `window.loadPdf(${JSON.stringify(localUri)}, ${JSON.stringify(
+        title
+      )}); true;`;
+      webviewRef.current?.injectJavaScript(script);
+    } catch (err) {
+      setStatus('error');
+      setErrorMessage(err instanceof Error ? err.message : 'Failed to download this PDF.');
+    }
   }, [absoluteFileUrl, title]);
 
   const handleMessage = useCallback(
@@ -105,6 +145,7 @@ export default function PdfViewerScreen({ title, fileUrl, nav }: Props) {
             allowFileAccess
             allowFileAccessFromFileURLs
             allowUniversalAccessFromFileURLs
+            allowingReadAccessToURL={cacheDirUriRef.current}
             mixedContentMode="always"
             javaScriptEnabled
             domStorageEnabled
@@ -117,7 +158,11 @@ export default function PdfViewerScreen({ title, fileUrl, nav }: Props) {
           <View style={styles.overlay} pointerEvents="none">
             <ActivityIndicator color={NAVY} size="large" />
             <Text style={styles.overlayText}>
-              {status === 'loading-asset' ? 'Preparing viewer…' : 'Loading PDF…'}
+              {status === 'loading-asset'
+                ? 'Preparing viewer…'
+                : status === 'downloading-pdf'
+                ? 'Downloading PDF…'
+                : 'Loading PDF…'}
             </Text>
           </View>
         )}
