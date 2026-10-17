@@ -261,6 +261,9 @@ export default function App() {
             {current.name === 'tab' && current.tab === 'ebook' && (
               <EbooksScreen token={token} nav={nav} />
             )}
+            {current.name === 'tab' && current.tab === 'sectional' && (
+              <SectionalCategoriesScreen token={token} nav={nav} />
+            )}
             {current.name === 'tab' && current.tab === 'results' && (
               <ResultsTabScreen token={token} nav={nav} />
             )}

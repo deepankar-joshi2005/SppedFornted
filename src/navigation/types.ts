@@ -1,4 +1,4 @@
-export type TabKey = 'home' | 'tests' | 'pyps' | 'ebook' | 'results' | 'profile';
+export type TabKey = 'home' | 'tests' | 'pyps' | 'ebook' | 'sectional' | 'results' | 'profile';
 
 export type Route =
   | { name: 'tab'; tab: TabKey }
@@ -52,6 +52,8 @@ export const routeTab = (route: Route): TabKey | null => {
       return 'pyps';
     case 'ebooks':
       return 'ebook';
+    case 'sectionalCategories':
+      return 'sectional';
     default:
       return null;
   }

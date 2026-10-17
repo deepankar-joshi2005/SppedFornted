@@ -20,6 +20,7 @@ export default function BottomTabBar({ active, onChange }: Props) {
     { key: 'tests', label: t('tab_tests', 'Tests'), icon: 'book-outline' },
     { key: 'pyps', label: "PYP's", icon: 'document-text-outline' },
     { key: 'ebook', label: 'E-Book', icon: 'library-outline' },
+    { key: 'sectional', label: 'Sectional', icon: 'clipboard-outline' },
     { key: 'results', label: t('tab_results', 'Results'), icon: 'trophy-outline' },
     { key: 'profile', label: t('tab_profile', 'Profile'), icon: 'person-outline' },
   ];
@@ -33,11 +34,13 @@ export default function BottomTabBar({ active, onChange }: Props) {
             <View style={[styles.iconWrap, isActive && styles.iconWrapActive]}>
               <Ionicons
                 name={isActive ? (tab.icon.replace('-outline', '') as typeof tab.icon) : tab.icon}
-                size={20}
+                size={17}
                 color={isActive ? NAVY : MUTED}
               />
             </View>
-            <Text style={[styles.label, isActive && styles.labelActive]}>{tab.label}</Text>
+            <Text style={[styles.label, isActive && styles.labelActive]} numberOfLines={1}>
+              {tab.label}
+            </Text>
           </Pressable>
         );
       })}
@@ -59,12 +62,13 @@ const styles = StyleSheet.create({
   tab: {
     flex: 1,
     alignItems: 'center',
-    gap: 4,
+    gap: 3,
+    paddingHorizontal: 2,
   },
   iconWrap: {
-    width: 44,
-    height: 30,
-    borderRadius: 15,
+    width: 36,
+    height: 26,
+    borderRadius: 13,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -72,7 +76,7 @@ const styles = StyleSheet.create({
     backgroundColor: GOLD_TINT,
   },
   label: {
-    fontSize: 11,
+    fontSize: 9.5,
     fontWeight: '600',
     color: MUTED,
   },

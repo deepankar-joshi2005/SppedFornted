@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import RazorpayCheckoutModal from '../components/RazorpayCheckoutModal';
+import UnlockBottomSheet from '../components/UnlockBottomSheet';
 import { resolveAssetUrl } from '../config/api';
 import { Nav } from '../navigation/types';
 import { getPyqs, markPyqDownloaded, PyqItem } from '../services/pyq.service';
@@ -281,8 +282,8 @@ export default function PypsPapersScreen({ token, category, examName, nav }: Pro
               <View style={styles.cardRightAction}>
                 {paper.isLocked ? (
                   <View style={[styles.actionPill, styles.actionPillLocked]}>
-                    <Text style={styles.actionPillTextLocked}>₹{priceDisplay}</Text>
-                    <Ionicons name="chevron-down" size={14} color="#92400E" />
+                    <Text style={styles.actionPillTextLocked}>Unlock Now</Text>
+                    <Ionicons name="lock-closed" size={12} color="#92400E" />
                   </View>
                 ) : (
                   <>
@@ -352,40 +353,22 @@ export default function PypsPapersScreen({ token, category, examName, nav }: Pro
         </View>
       </Modal>
 
-      {/* Purchase Modal */}
-      <Modal visible={!!buyTarget} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={styles.purchaseCard}>
-            <View style={styles.lockIconWrap}>
-              <Ionicons name="lock-closed" size={28} color="#D97706" />
-            </View>
-            <Text style={styles.purchaseTitle}>Unlock {buyTarget?.title}</Text>
-            <Text style={styles.purchaseSub}>This paper is paid. Purchase to view the full PDF.</Text>
-            <Text style={styles.priceText}>
-              ₹
-              {buyTarget?.isCoachingStudent && (buyTarget?.coachingPrice ?? 0) > 0
-                ? buyTarget?.coachingPrice
-                : buyTarget?.price}
-            </Text>
-            {!!buyError && <Text style={styles.buyErrorText}>{buyError}</Text>}
-            <View style={styles.modalActions}>
-              <Pressable
-                style={[styles.modalBtn, styles.modalBtnOutline]}
-                onPress={() => setBuyTarget(null)}
-              >
-                <Text style={styles.modalBtnOutlineText}>Cancel</Text>
-              </Pressable>
-              <Pressable style={styles.modalBtn} onPress={handleBuy} disabled={buying}>
-                {buying ? (
-                  <ActivityIndicator color="#FFF" size="small" />
-                ) : (
-                  <Text style={styles.modalBtnText}>Buy Now</Text>
-                )}
-              </Pressable>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      {/* Unlock Bottom Sheet */}
+      <UnlockBottomSheet
+        visible={!!buyTarget}
+        onClose={() => setBuyTarget(null)}
+        title={buyTarget?.title || 'Previous Year Paper'}
+        type="pyq"
+        price={
+          (buyTarget?.isCoachingStudent && (buyTarget?.coachingPrice ?? 0) > 0
+            ? buyTarget?.coachingPrice
+            : buyTarget?.price) ?? 49
+        }
+        seedKey={buyTarget?.id || buyTarget?.title}
+        accessDuration="Complete Access Pass"
+        onPay={handleBuy}
+        loading={buying}
+      />
 
       <RazorpayCheckoutModal
         visible={razorpayVisible}

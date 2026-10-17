@@ -33,6 +33,9 @@ yarn-error.*
 # local env files
 .env*.local
 
+# Firebase (google-services.json / GoogleService-Info.plist are safe to commit —
+# Firebase apps are secured via SHA fingerprint + Security Rules, not file secrecy)
+
 # typescript
 *.tsbuildinfo
 

@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import RazorpayCheckoutModal from '../components/RazorpayCheckoutModal';
+import UnlockBottomSheet from '../components/UnlockBottomSheet';
 import { resolveAssetUrl } from '../config/api';
 import { Nav } from '../navigation/types';
 import {
@@ -347,8 +348,8 @@ export default function TestListScreen({ token, category, seriesId, testSeriesId
               <View style={styles.cardRightAction}>
                 {test.isLocked ? (
                   <View style={[styles.actionPill, styles.actionPillLocked]}>
-                    <Text style={styles.actionPillTextLocked}>Locked 🔒</Text>
-                    <Ionicons name="chevron-down" size={14} color="#92400E" />
+                    <Text style={styles.actionPillTextLocked}>Unlock Now</Text>
+                    <Ionicons name="lock-closed" size={12} color="#92400E" />
                   </View>
                 ) : test.status === 'completed' ? (
                   <View style={[styles.actionPill, styles.actionPillDone]}>
@@ -424,55 +425,21 @@ export default function TestListScreen({ token, category, seriesId, testSeriesId
         </View>
       </Modal>
 
-      {/* Purchase Modal */}
-      <Modal visible={buyModalVisible} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={styles.purchaseCard}>
-            <View style={styles.lockIconWrap}>
-              <Ionicons name="lock-closed" size={32} color="#D97706" />
-            </View>
-            <Text style={styles.purchaseTitle}>Unlock {seriesTitle}</Text>
-            <Text style={styles.purchaseSub}>
-              This test series is paid. Purchase now to get full access to all mock tests!
-            </Text>
-
-            {seriesData?.isCoachingStudent && (
-              <View style={styles.coachingPill}>
-                <Ionicons name="school-outline" size={14} color="#166534" />
-                <Text style={styles.coachingPillText}>Speed Coaching Student Discount Applied!</Text>
-              </View>
-            )}
-
-            <View style={styles.priceContainer}>
-              <Text style={styles.priceLabel}>Total Amount:</Text>
-              <Text style={styles.priceValue}>
-                ₹
-                {seriesData?.isCoachingStudent
-                  ? (seriesData.coachingPrice ?? seriesData.price)
-                  : seriesData?.price}
-              </Text>
-            </View>
-
-            {!!buyError && <Text style={styles.errorTextSmall}>{buyError}</Text>}
-
-            <Pressable
-              style={styles.buyConfirmBtn}
-              onPress={handleBuySeries}
-              disabled={buying}
-            >
-              {buying ? (
-                <ActivityIndicator color="#fff" size="small" />
-              ) : (
-                <Text style={styles.buyConfirmBtnText}>Confirm Purchase & Unlock</Text>
-              )}
-            </Pressable>
-
-            <Pressable style={styles.cancelBuyBtn} onPress={() => setBuyModalVisible(false)}>
-              <Text style={styles.cancelBuyText}>Cancel</Text>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
+      {/* Bottom Sheet Unlock Modal matching screenshot */}
+      <UnlockBottomSheet
+        visible={buyModalVisible}
+        onClose={() => setBuyModalVisible(false)}
+        title={seriesTitle || 'Test Series'}
+        type="series"
+        price={
+          (seriesData?.isCoachingStudent && (seriesData.coachingPrice ?? 0) > 0
+            ? seriesData.coachingPrice
+            : seriesData?.price) ?? 199
+        }
+        seedKey={seriesData?.seriesId || seriesTitle}
+        onPay={handleBuySeries}
+        loading={buying}
+      />
 
       {/* Razorpay WebView Checkout Modal */}
       <RazorpayCheckoutModal

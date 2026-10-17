@@ -11,6 +11,7 @@
     },
     "android": {
       "package": "com.speedcoaching.app",
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#141414",
         "foregroundImage": "./assets/android-icon-foreground.png"
@@ -43,7 +44,9 @@
         }
       ],
       "expo-sharing",
-      "expo-asset"
+      "expo-asset",
+      "@react-native-firebase/app",
+      "@react-native-firebase/auth"
     ],
     "extra": {
       "eas": {

@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Image,
   Modal,
   Pressable,
@@ -13,8 +14,15 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import NotificationBell from '../components/NotificationBell';
+import RazorpayCheckoutModal from '../components/RazorpayCheckoutModal';
+import UnlockBottomSheet from '../components/UnlockBottomSheet';
 import { resolveAssetUrl } from '../config/api';
 import { Nav } from '../navigation/types';
+import {
+  createRazorpayOrder,
+  RazorpayOrderResponse,
+  verifyRazorpayPayment,
+} from '../services/purchases.service';
 import { getSeriesByCategory, SeriesByCategoryItem } from '../services/tests.service';
 import { getStreakDays } from '../services/dashboard.service';
 import { ERROR, GOLD, MUTED, NAVY } from '../theme/colors';
@@ -34,6 +42,10 @@ export default function TestSeriesListScreen({ token, category, categoryIcon, na
   const [streakDays, setStreakDays] = useState(0);
 
   const [howItWorksVisible, setHowItWorksVisible] = useState(false);
+  const [unlockTarget, setUnlockTarget] = useState<SeriesByCategoryItem | null>(null);
+  const [buying, setBuying] = useState(false);
+  const [razorpayOrder, setRazorpayOrder] = useState<RazorpayOrderResponse | null>(null);
+  const [razorpayVisible, setRazorpayVisible] = useState(false);
 
   const load = useCallback(
     async (isRefresh?: boolean) => {
@@ -58,6 +70,44 @@ export default function TestSeriesListScreen({ token, category, categoryIcon, na
   useEffect(() => {
     load();
   }, [load]);
+
+  const handleBuySeries = async () => {
+    if (!unlockTarget) return;
+    setBuying(true);
+    try {
+      const order = await createRazorpayOrder(token, unlockTarget.seriesId);
+      setRazorpayOrder(order);
+      setUnlockTarget(null);
+      setRazorpayVisible(true);
+    } catch (err) {
+      Alert.alert('Payment Error', err instanceof Error ? err.message : 'Could not create payment order.');
+    } finally {
+      setBuying(false);
+    }
+  };
+
+  const handleRazorpaySuccess = async (data: {
+    razorpay_payment_id: string;
+    razorpay_order_id: string;
+    razorpay_signature: string;
+  }) => {
+    if (!razorpayOrder) return;
+    setRazorpayVisible(false);
+    setLoading(true);
+    try {
+      await verifyRazorpayPayment(token, {
+        razorpay_payment_id: data.razorpay_payment_id,
+        razorpay_order_id: data.razorpay_order_id,
+        razorpay_signature: data.razorpay_signature,
+        testSeriesId: razorpayOrder.testSeriesId,
+      });
+      load(true);
+    } catch (err) {
+      Alert.alert('Error', 'Payment verification failed. Please contact support.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const totalSeriesCount = series?.length || 0;
   const totalMocksCount = series?.reduce((sum, s) => sum + s.totalTests, 0) || 0;
@@ -218,10 +268,16 @@ export default function TestSeriesListScreen({ token, category, categoryIcon, na
                 {/* Right Action Button Pill */}
                 <View style={styles.cardRightAction}>
                   {item.isPaid && !item.isPurchased ? (
-                    <View style={[styles.actionPill, styles.actionPillLocked]}>
-                      <Text style={styles.actionPillTextLocked}>₹{item.price}</Text>
-                      <Ionicons name="chevron-down" size={14} color="#92400E" />
-                    </View>
+                    <Pressable
+                      style={[styles.actionPill, styles.actionPillLocked]}
+                      onPress={(e) => {
+                        e.stopPropagation?.();
+                        setUnlockTarget(item);
+                      }}
+                    >
+                      <Text style={styles.actionPillTextLocked}>Unlock Now</Text>
+                      <Ionicons name="lock-closed" size={12} color="#92400E" />
+                    </Pressable>
                   ) : (
                     <View style={[styles.actionPill, styles.actionPillOpen]}>
                       <Text style={styles.actionPillTextOpen}>Open</Text>
@@ -272,6 +328,30 @@ export default function TestSeriesListScreen({ token, category, categoryIcon, na
           </View>
         </View>
       </Modal>
+
+      {/* Unlock Bottom Sheet */}
+      <UnlockBottomSheet
+        visible={!!unlockTarget}
+        onClose={() => setUnlockTarget(null)}
+        title={unlockTarget?.title || 'Test Series'}
+        type="series"
+        price={unlockTarget?.price ?? 199}
+        seedKey={unlockTarget?.seriesId || unlockTarget?.title}
+        onPay={handleBuySeries}
+        loading={buying}
+      />
+
+      {/* Razorpay WebView Checkout Modal */}
+      <RazorpayCheckoutModal
+        visible={razorpayVisible}
+        orderData={razorpayOrder}
+        onSuccess={handleRazorpaySuccess}
+        onCancel={() => setRazorpayVisible(false)}
+        onError={(errMsg) => {
+          setRazorpayVisible(false);
+          Alert.alert('Payment Error', errMsg);
+        }}
+      />
     </SafeAreaView>
   );
 }

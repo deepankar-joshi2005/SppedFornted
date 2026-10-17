@@ -428,32 +428,7 @@ export default function HomeScreen({ user, token, nav }: Props) {
 
   const bannersList: BannerItem[] = data?.banners?.length ? data.banners : [];
 
-  const liveMocksList: LiveMockItem[] = data?.liveMocks !== undefined
-    ? data.liveMocks
-    : [
-        {
-          id: 'lm1',
-          title: 'Live Test - SSC CGL Tier 1',
-          badgeText: 'All India Sunday Live Mock-9',
-          totalQuestions: 100,
-          durationMinutes: 60,
-          totalMarks: 200,
-          isLive: true,
-          liveTimeLabel: null,
-          category: 'SSC',
-        },
-        {
-          id: 'lm2',
-          title: 'Live Test - RRB NTPC CBT 1',
-          badgeText: 'All India Rail Mock-4',
-          totalQuestions: 100,
-          durationMinutes: 90,
-          totalMarks: 100,
-          isLive: true,
-          liveTimeLabel: null,
-          category: 'RRB',
-        },
-      ];
+  const liveMocksList: LiveMockItem[] = data?.liveMocks ?? [];
 
   const activitiesList: ActivityItem[] = data?.myActivities ?? [];
 
@@ -862,16 +837,13 @@ export default function HomeScreen({ user, token, nav }: Props) {
           </View>
         </View>
 
-        {/* Live Mocks Section */}
+        {/* Live Mock Test Section */}
         {liveMocksList.length > 0 && (
           <>
             <View style={styles.sectionHeaderRow}>
               <View style={styles.sectionTitleWithAccent}>
                 <View style={styles.blueAccentBar} />
-                <View style={styles.freeBadgePill}>
-                  <Text style={styles.freeBadgeText}>FREE</Text>
-                </View>
-                <Text style={styles.sectionTitleText}>Live Mocks</Text>
+                <Text style={styles.sectionTitleText}>Live Mock Test</Text>
               </View>
             </View>
 
@@ -883,65 +855,88 @@ export default function HomeScreen({ user, token, nav }: Props) {
                 pagingEnabled
                 showsHorizontalScrollIndicator={false}
                 keyExtractor={(item) => item.id}
+                getItemLayout={(_data, index) => ({
+                  length: SCREEN_WIDTH - 36,
+                  offset: (SCREEN_WIDTH - 36) * index,
+                  index,
+                })}
+                onScrollToIndexFailed={(info) => {
+                  liveMockFlatListRef.current?.scrollToOffset({
+                    offset: info.averageItemLength * info.index,
+                    animated: true,
+                  });
+                }}
                 onMomentumScrollEnd={(e) => {
                   const index = Math.round(e.nativeEvent.contentOffset.x / (SCREEN_WIDTH - 36));
                   setActiveLiveMockIndex(index);
                 }}
-                renderItem={({ item }) => (
-                  <View style={styles.liveMockCard}>
-                    <View style={styles.liveMockHeaderRow}>
-                      <Text style={styles.liveMockTitle}>{item.title}</Text>
-                      <View style={styles.liveBadge}>
-                        <Text style={styles.liveBadgeText}>LIVE</Text>
-                      </View>
-                      <Ionicons name="information-circle-outline" size={18} color={MUTED} style={styles.infoIcon} />
-                    </View>
-
-                    <View style={styles.liveMockSubPill}>
-                      <Text style={styles.liveMockSubPillText}>
-                        • {item.badgeText}
-                        {item.liveTimeLabel ? ` · ${item.liveTimeLabel}` : ''}
-                      </Text>
-                    </View>
-
-                    <View style={styles.liveMockDetailsRow}>
-                      <View style={styles.mockStatCol}>
-                        <Text style={styles.mockStatValue}>{item.totalQuestions}</Text>
-                        <Text style={styles.mockStatLabel}>Ques</Text>
-                      </View>
-                      <View style={styles.mockDivider} />
-                      <View style={styles.mockStatCol}>
-                        <Text style={styles.mockStatValue}>{item.durationMinutes}</Text>
-                        <Text style={styles.mockStatLabel}>mins</Text>
-                      </View>
-                      <View style={styles.mockDivider} />
-                      <View style={styles.mockStatCol}>
-                        <Text style={styles.mockStatValue}>{item.totalMarks}.0</Text>
-                        <Text style={styles.mockStatLabel}>Marks</Text>
+                renderItem={({ item }) => {
+                  // Parse liveTimeLabel as a start date/time string if available
+                  const startDateStr = item.liveTimeLabel || null;
+                  return (
+                    <View style={styles.liveMockCard}>
+                      {/* Header: Title + Calendar Icon */}
+                      <View style={styles.liveMockHeaderRow}>
+                        <Text style={styles.liveMockTitle} numberOfLines={2}>{item.title}</Text>
+                        <View style={styles.lmCalendarIconWrap}>
+                          <Ionicons name="calendar" size={22} color="#E86B3E" />
+                        </View>
                       </View>
 
-                      <Pressable
-                        style={styles.startTestGreenBtn}
-                        onPress={() => nav.push({ name: 'testInstructions', testId: item.id })}
-                      >
-                        <Text style={styles.startTestGreenText}>Start Test</Text>
-                      </Pressable>
+                      {/* Badge pill: category/series name */}
+                      <View style={styles.liveMockSubPill}>
+                        <Text style={styles.liveMockSubPillText}>• {item.badgeText}</Text>
+                      </View>
+
+                      {/* Stats row */}
+                      <View style={styles.lmStatsRow}>
+                        <View style={styles.lmStatGroup}>
+                          <Text style={styles.lmStatMain}>{item.totalQuestions} Ques</Text>
+                          <Text style={styles.lmStatSub}>Ques</Text>
+                        </View>
+                        <View style={styles.lmStatGroup}>
+                          <Ionicons name="time-outline" size={13} color={MUTED} style={{ marginBottom: 1 }} />
+                          <Text style={styles.lmStatMain}>{item.durationMinutes} mins</Text>
+                          <Text style={styles.lmStatSub}>Mins</Text>
+                        </View>
+                        <View style={styles.lmStatGroup}>
+                          <Ionicons name="person-outline" size={13} color={MUTED} style={{ marginBottom: 1 }} />
+                          <Text style={styles.lmStatMain}>{item.totalMarks}</Text>
+                          <Text style={styles.lmStatSub}>Marks</Text>
+                        </View>
+                        {!!startDateStr && (
+                          <Text style={styles.lmStartDateText}>Starts {startDateStr}</Text>
+                        )}
+                      </View>
+
+                      {/* Divider */}
+                      <View style={styles.lmDivider} />
+
+                      {/* Footer: LIVE NOW + Attempt Now + View Details */}
+                      <View style={styles.lmFooterRow}>
+                        {item.isLive ? (
+                          <View style={styles.lmLiveNowWrap}>
+                            <View style={styles.lmLiveDot} />
+                            <Text style={styles.lmLiveNowText}>LIVE NOW</Text>
+                          </View>
+                        ) : (
+                          <View style={styles.lmLiveNowWrap}>
+                            <Ionicons name="calendar-outline" size={13} color="#E86B3E" />
+                            <Text style={[styles.lmLiveNowText, { color: '#E86B3E' }]}>UPCOMING</Text>
+                          </View>
+                        )}
+                        <Pressable
+                          style={styles.lmAttemptBtn}
+                          onPress={() => nav.push({ name: 'testInstructions', testId: item.id })}
+                        >
+                          <Text style={styles.lmAttemptBtnText}>Attempt Now</Text>
+                        </Pressable>
+                      </View>
                     </View>
-                  </View>
-                )}
+                  );
+                }}
               />
-              {/* Live Mock Indicators */}
-              <View style={styles.indicatorRow}>
-                {liveMocksList.map((_, i) => (
-                  <View
-                    key={i}
-                    style={[
-                      styles.indicatorDot,
-                      activeLiveMockIndex === i && styles.indicatorDotActive,
-                    ]}
-                  />
-                ))}
-              </View>
+
             </View>
           </>
         )}
@@ -1135,61 +1130,130 @@ export default function HomeScreen({ user, token, nav }: Props) {
 
         {activitiesList.length > 0 ? (
           <View style={styles.activitiesContainer}>
-            <View style={styles.lastTestBadge}>
-              <Text style={styles.lastTestBadgeText}>Last Test</Text>
+            {/* Stats summary bar — fully dynamic from API stats */}
+            <View style={styles.activityStatsBar}>
+              <Text style={styles.activityStatBarText} numberOfLines={1}>
+                <Text style={styles.activityStatBarLabel}>Tests Attempted: </Text>
+                <Text style={styles.activityStatBarValue}>
+                  {data?.stats?.attempted ?? activitiesList.length}
+                </Text>
+              </Text>
+              <View style={styles.activityStatDivider} />
+              <Text style={styles.activityStatBarText} numberOfLines={1}>
+                <Text style={styles.activityStatBarLabel}>Avg Score: </Text>
+                <Text style={styles.activityStatBarValue}>
+                  {data?.stats?.avgScore != null
+                    ? `${data.stats.avgScore.toFixed(0)}%`
+                    : 'N/A'}
+                </Text>
+              </Text>
+              <View style={styles.activityStatDivider} />
+              <Text style={styles.activityStatBarText} numberOfLines={1}>
+                <Text style={styles.activityStatBarLabel}>Time Spent: </Text>
+                <Text style={styles.activityStatBarValue}>
+                  {`${Math.max(1, Math.round(
+                    activitiesList.reduce((s, a) => s + a.durationMinutes, 0) / 60
+                  ))}h`}
+                </Text>
+              </Text>
             </View>
 
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              {activitiesList.map((item) => (
-                <View style={styles.activityCard} key={item.attemptId}>
-                  <Text style={styles.activityTitle}>{item.title}</Text>
+            {/* Sliding activity cards */}
+            <FlatList
+              data={activitiesList}
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              keyExtractor={(item) => item.attemptId}
+              getItemLayout={(_data, index) => ({
+                length: SCREEN_WIDTH - 36,
+                offset: (SCREEN_WIDTH - 36) * index,
+                index,
+              })}
+              renderItem={({ item, index }) => (
+                <View style={styles.activityCard}>
+                  {/* Title row with Last Test badge */}
+                  <View style={styles.activityTitleRow}>
+                    <Text style={styles.activityTitle} numberOfLines={2}>
+                      {item.title}
+                    </Text>
+                    {index === 0 && (
+                      <View style={styles.lastTestBadge}>
+                        <Text style={styles.lastTestBadgeText}>Last Test</Text>
+                      </View>
+                    )}
+                  </View>
 
+                  {/* Category pill */}
                   <View style={styles.activityPillTag}>
                     <Text style={styles.activityPillText}>• {item.categoryTag}</Text>
                   </View>
 
-                  <View style={styles.activityFooterRow}>
+                  {/* Score / Rank / Accuracy row */}
+                  {item.status === 'completed' && !item.resultLocked && (
+                    <View style={styles.activityScoreRow}>
+                      <Text style={styles.activityScoreText}>
+                        Score: <Text style={styles.activityScoreBold}>{(item.score ?? 0).toFixed(0)}/{item.totalQuestions * (item.totalQuestions > 0 ? 1 : 1)}</Text>
+                      </Text>
+                      <Text style={styles.activityScoreSep}>|</Text>
+                      <Text style={styles.activityScoreText}>
+                        Accuracy: <Text style={styles.activityScoreBold}>{(item.accuracy ?? 0).toFixed(0)}%</Text>
+                      </Text>
+                    </View>
+                  )}
+                  {item.status === 'completed' && item.resultLocked && (
+                    <Text style={styles.activityLockedText}>
+                      Submitted • Result at {item.resultAvailableAtLabel}
+                    </Text>
+                  )}
+                  {item.status === 'in-progress' && (
+                    <View style={styles.activityScoreRow}>
+                      <Text style={styles.activityScoreText}>
+                        {item.totalQuestions} Ques  |  {item.durationMinutes} mins
+                      </Text>
+                    </View>
+                  )}
+
+                  {/* Action buttons */}
+                  <View style={styles.activityBtnRow}>
                     {item.status === 'completed' ? (
                       <>
-                        <Text style={styles.activityStatsText}>
-                          {item.resultLocked
-                            ? `Submitted • Result at ${item.resultAvailableAtLabel}`
-                            : `${(item.score ?? 0).toFixed(2)} Marks   |   ${(item.accuracy ?? 0).toFixed(1)}% Acc`}
-                        </Text>
                         <Pressable
-                          style={styles.resultBlueBtn}
+                          style={styles.activityAnalysisBtn}
                           onPress={() =>
                             nav.push({ name: 'testResult', attemptId: item.attemptId })
                           }
                         >
-                          <Text style={styles.resultBlueText}>
-                            {item.resultLocked ? 'View' : 'Result'}
-                          </Text>
+                          <Text style={styles.activityAnalysisBtnText}>Analysis & Solutions</Text>
+                        </Pressable>
+                        <Pressable
+                          style={styles.activityReAttemptBtn}
+                          onPress={() =>
+                            nav.push({ name: 'testInstructions', testId: item.testId })
+                          }
+                        >
+                          <Text style={styles.activityReAttemptBtnText}>Re-Attempt</Text>
                         </Pressable>
                       </>
                     ) : (
-                      <>
-                        <Text style={styles.activityStatsText}>
-                          {item.totalQuestions} Ques   |   {item.durationMinutes} mins
-                        </Text>
-                        <Pressable
-                          style={styles.resumeGoldBtn}
-                          onPress={() =>
-                            nav.push({
-                              name: 'testTaking',
-                              attemptId: item.attemptId,
-                              testId: item.testId,
-                            })
-                          }
-                        >
-                          <Text style={styles.resumeGoldText}>Resume Test</Text>
-                        </Pressable>
-                      </>
+                      <Pressable
+                        style={[styles.activityAnalysisBtn, { flex: 1 }]}
+                        onPress={() =>
+                          nav.push({
+                            name: 'testTaking',
+                            attemptId: item.attemptId,
+                            testId: item.testId,
+                          })
+                        }
+                      >
+                        <Text style={styles.activityAnalysisBtnText}>Resume Test</Text>
+                      </Pressable>
                     )}
                   </View>
                 </View>
-              ))}
-            </ScrollView>
+              )}
+            />
+
           </View>
         ) : (
           <View style={styles.activitiesEmptyBox}>
@@ -1825,7 +1889,7 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   liveMockSubPill: {
-    backgroundColor: '#EFF6FF',
+    backgroundColor: '#FDDDD8',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
@@ -1835,7 +1899,7 @@ const styles = StyleSheet.create({
   liveMockSubPillText: {
     fontSize: 11.5,
     fontWeight: '700',
-    color: '#1D4ED8',
+    color: '#B91C1C',
   },
   liveMockDetailsRow: {
     flexDirection: 'row',
@@ -1870,6 +1934,103 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 12.5,
     fontWeight: '800',
+  },
+  // ── Live Mock card — new design ──────────────────────────────────────────
+  lmCalendarIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#FFF3ED',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 8,
+    flexShrink: 0,
+  },
+  lmStatsRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginTop: 12,
+    gap: 16,
+    flexWrap: 'wrap',
+  },
+  lmStatGroup: {
+    alignItems: 'flex-start',
+  },
+  lmStatMain: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: NAVY,
+  },
+  lmStatSub: {
+    fontSize: 10.5,
+    color: MUTED,
+    marginTop: 1,
+  },
+  lmStartDateText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#374151',
+    marginLeft: 'auto' as any,
+    alignSelf: 'center',
+    flexShrink: 1,
+    textAlign: 'right',
+  },
+  lmDivider: {
+    height: 1,
+    backgroundColor: '#E5E7EB',
+    marginTop: 12,
+    marginBottom: 12,
+  },
+  lmFooterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  lmLiveNowWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginRight: 2,
+  },
+  lmLiveDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#DC2626',
+  },
+  lmLiveNowText: {
+    fontSize: 11.5,
+    fontWeight: '800',
+    color: '#DC2626',
+  },
+  lmAttemptBtn: {
+    backgroundColor: '#15803D',
+    paddingVertical: 10,
+    paddingHorizontal: 22,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  lmAttemptBtnText: {
+    color: '#FFF',
+    fontSize: 12.5,
+    fontWeight: '800',
+  },
+  lmViewDetailsBtn: {
+    flex: 1,
+    borderWidth: 1.5,
+    borderColor: '#D1D5DB',
+    paddingVertical: 10,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+  lmViewDetailsBtnText: {
+    color: NAVY,
+    fontSize: 12.5,
+    fontWeight: '700',
   },
   upcomingDateBox: {
     alignItems: 'flex-end',
@@ -1924,47 +2085,141 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   activitiesContainer: {
-    backgroundColor: '#D1D5DB',
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    padding: 16,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    ...SOFT_SHADOW,
+  },
+  activityStatsBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F9FAFB',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    marginBottom: 8,
+    gap: 4,
+  },
+  activityStatBarText: {
+    flex: 1,
+    fontSize: 11.5,
+    color: '#374151',
+  },
+  activityStatBarLabel: {
+    color: '#6B7280',
+    fontWeight: '600',
+  },
+  activityStatBarValue: {
+    color: '#111827',
+    fontWeight: '800',
+  },
+  activityStatDivider: {
+    width: 1,
+    height: 14,
+    backgroundColor: '#D1D5DB',
   },
   lastTestBadge: {
     backgroundColor: '#6D28D9',
-    paddingHorizontal: 16,
-    paddingVertical: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
     borderRadius: 20,
     alignSelf: 'flex-start',
-    marginBottom: 12,
   },
   lastTestBadgeText: {
     color: '#FFF',
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '800',
   },
   activityCard: {
     width: SCREEN_WIDTH - 68,
     backgroundColor: '#FFFFFF',
     borderRadius: 14,
-    padding: 16,
-    marginRight: 10,
+    padding: 10,
+  },
+  activityTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+    gap: 8,
   },
   activityTitle: {
     fontSize: 14,
     fontWeight: '800',
     color: NAVY,
+    flex: 1,
   },
   activityPillTag: {
     backgroundColor: '#EFF6FF',
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: 3,
     borderRadius: 12,
     alignSelf: 'flex-start',
-    marginTop: 8,
+    marginBottom: 6,
   },
   activityPillText: {
     fontSize: 11.5,
     fontWeight: '700',
     color: '#2563EB',
+  },
+  activityScoreRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flexWrap: 'wrap',
+    marginBottom: 8,
+  },
+  activityScoreText: {
+    fontSize: 12,
+    color: '#374151',
+  },
+  activityScoreBold: {
+    fontWeight: '800',
+    color: NAVY,
+  },
+  activityScoreSep: {
+    color: '#D1D5DB',
+    fontWeight: '700',
+  },
+  activityLockedText: {
+    fontSize: 11.5,
+    color: MUTED,
+    marginBottom: 12,
+  },
+  activityBtnRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 2,
+  },
+  activityAnalysisBtn: {
+    flex: 1,
+    backgroundColor: '#2563EB',
+    paddingVertical: 9,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  activityAnalysisBtnText: {
+    color: '#FFF',
+    fontSize: 12.5,
+    fontWeight: '800',
+  },
+  activityReAttemptBtn: {
+    flex: 1,
+    borderWidth: 1.5,
+    borderColor: '#D1D5DB',
+    paddingVertical: 11,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+  activityReAttemptBtnText: {
+    color: NAVY,
+    fontSize: 12.5,
+    fontWeight: '700',
   },
   activityFooterRow: {
     flexDirection: 'row',

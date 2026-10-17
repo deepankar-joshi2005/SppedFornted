@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import RazorpayCheckoutModal from '../components/RazorpayCheckoutModal';
+import UnlockBottomSheet from '../components/UnlockBottomSheet';
 import { Nav } from '../navigation/types';
 import {
   CoachingOnlyError,
@@ -383,47 +384,17 @@ export default function TestInstructionsScreen({ token, testId, nav }: Props) {
         />
       )}
 
-      <Modal visible={payModalInfo.visible} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={styles.purchaseCard}>
-            <View style={styles.lockIconWrap}>
-              <Ionicons name="lock-closed" size={28} color="#D97706" />
-            </View>
-            <Text style={styles.purchaseTitle}>Test Series Locked</Text>
-            <Text style={styles.purchaseSub}>
-              This test is part of a Paid Test Series. Unlock now to get unlimited access to all tests.
-            </Text>
-
-            {payModalInfo.isCoachingStudent && (
-              <View style={styles.coachingPill}>
-                <Ionicons name="school" size={14} color="#2E9E5B" />
-                <Text style={styles.coachingPillText}>Coaching Student Discount Applied!</Text>
-              </View>
-            )}
-
-            <View style={styles.priceContainer}>
-              <Text style={styles.priceLabel}>Total Price</Text>
-              <Text style={styles.priceValue}>₹{payModalInfo.price}</Text>
-            </View>
-
-            <Pressable style={styles.buyConfirmBtn} onPress={handleBuy} disabled={buying}>
-              {buying ? (
-                <ActivityIndicator color="#FFF" />
-              ) : (
-                <Text style={styles.buyConfirmBtnText}>Pay & Unlock Now (₹{payModalInfo.price})</Text>
-              )}
-            </Pressable>
-
-            <Pressable
-              style={styles.cancelBuyBtn}
-              onPress={() => setPayModalInfo({ visible: false, seriesId: '', price: 0, isCoachingStudent: false })}
-              disabled={buying}
-            >
-              <Text style={styles.cancelBuyText}>Cancel</Text>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
+      {/* Bottom Sheet Unlock Modal matching screenshot */}
+      <UnlockBottomSheet
+        visible={payModalInfo.visible}
+        onClose={() => setPayModalInfo({ visible: false, seriesId: '', price: 0, isCoachingStudent: false })}
+        title={data?.title ? `${data.title} Series` : 'Test Series'}
+        type="series"
+        price={payModalInfo.price || 199}
+        seedKey={payModalInfo.seriesId || data?.id}
+        onPay={handleBuy}
+        loading={buying}
+      />
 
       {/* Razorpay WebView Checkout Modal */}
       <RazorpayCheckoutModal
