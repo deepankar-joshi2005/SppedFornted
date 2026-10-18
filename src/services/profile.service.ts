@@ -9,6 +9,7 @@ export interface ProfileData {
   email: string;
   mobile: string;
   preferredLanguage: Language;
+  targetExam?: string;
   profileImage: string | null;
   testsAttempted: number;
   avgAccuracy: number;
@@ -35,8 +36,8 @@ export const getProfile = async (token: string): Promise<ProfileData> => {
 
 export const updateProfile = async (
   token: string,
-  payload: { name: string; email: string; mobile: string }
-): Promise<{ id: string; name: string; email: string; mobile: string }> => {
+  payload: { name: string; email: string; mobile: string; targetExam?: string }
+): Promise<{ id: string; name: string; email: string; mobile: string; targetExam?: string }> => {
   try {
     const response = await api.patch('/profile', payload, authHeaders(token));
     return response.data;

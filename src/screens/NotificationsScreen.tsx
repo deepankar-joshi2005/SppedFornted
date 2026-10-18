@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -17,7 +18,7 @@ import {
   markNotificationRead,
   NotificationItem,
 } from '../services/notifications.service';
-import { ERROR, GOLD, MUTED, NAVY } from '../theme/colors';
+import { ERROR, MUTED, NAVY } from '../theme/colors';
 
 type Props = {
   token: string;
@@ -143,7 +144,7 @@ export default function NotificationsScreen({ token, nav }: Props) {
     }
   };
 
-  const getActionLabel = (item: NotificationItem): string | null => {
+  const getActionLabel = (item: NotificationItem): string => {
     if (
       item.targetScreen === 'solutionReview' ||
       item.attemptId ||
@@ -151,14 +152,14 @@ export default function NotificationsScreen({ token, nav }: Props) {
       item.title.toLowerCase().includes('completed') ||
       item.title.toLowerCase().includes('submitted')
     ) {
-      return 'View Solution & Answer Key ›';
+      return 'View Solution ›';
     }
     if (
       item.targetScreen === 'testInstructions' ||
       item.testId ||
       item.title.toLowerCase().includes('test added')
     ) {
-      return 'Start Test Now ›';
+      return 'Start Test ›';
     }
     if (item.targetScreen === 'pyq' || item.title.toLowerCase().includes('paper')) {
       return 'View Papers ›';
@@ -170,14 +171,7 @@ export default function NotificationsScreen({ token, nav }: Props) {
     ) {
       return 'View E-Book ›';
     }
-    if (
-      item.targetScreen === 'testList' ||
-      item.category ||
-      item.title.toLowerCase().includes('series')
-    ) {
-      return 'View Series ›';
-    }
-    return null;
+    return 'View Series ›';
   };
 
   const handleMarkAll = async () => {
@@ -195,7 +189,7 @@ export default function NotificationsScreen({ token, nav }: Props) {
     <SafeAreaView style={styles.root} edges={['top', 'bottom']}>
       <View style={styles.headerRow}>
         <Pressable style={styles.iconBtn} onPress={nav.pop} hitSlop={8}>
-          <Ionicons name="chevron-back" size={22} color={NAVY} />
+          <Ionicons name="chevron-back" size={24} color="#101F42" />
         </Pressable>
         <Text style={styles.headerTitle}>Notifications</Text>
         <Pressable style={styles.iconBtn} onPress={handleMarkAll} hitSlop={8} disabled={!unreadCount}>
@@ -225,7 +219,7 @@ export default function NotificationsScreen({ token, nav }: Props) {
 
         {items?.length === 0 && (
           <View style={styles.emptyBox}>
-            <Ionicons name="notifications-off-outline" size={30} color={MUTED} />
+            <Ionicons name="notifications-off-outline" size={36} color={MUTED} />
             <Text style={styles.emptyText}>No notifications yet.</Text>
           </View>
         )}
@@ -235,28 +229,38 @@ export default function NotificationsScreen({ token, nav }: Props) {
           return (
             <Pressable
               key={item.id}
-              style={[styles.card, !item.isRead && styles.cardUnread]}
+              style={styles.card}
               onPress={() => handleTap(item)}
             >
-              <View style={styles.cardIconWrap}>
-                <Ionicons
-                  name={item.type === 'result' ? 'trophy-outline' : 'megaphone-outline'}
-                  size={18}
-                  color={GOLD}
+              <View style={styles.cardTopSection}>
+                {/* Megaphone icon badge exactly as in screenshot */}
+                <Image
+                  source={require('../../assets/notification-badge.png')}
+                  style={styles.badgeImage}
+                  resizeMode="contain"
                 />
-              </View>
-              <View style={styles.cardBody}>
-                <View style={styles.cardTopRow}>
-                  <Text style={styles.cardTitle}>{item.title}</Text>
-                  {!item.isRead && <View style={styles.unreadDot} />}
+
+                <View style={styles.cardBody}>
+                  <View style={styles.cardTitleRow}>
+                    <View style={styles.titleWithBadge}>
+                      <Text style={styles.cardTitle} numberOfLines={1}>
+                        {item.title}
+                      </Text>
+                      <Text style={styles.glowDot}>🟡</Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={18} color="#1E293B" style={styles.chevron} />
+                  </View>
+
+                  <Text style={styles.cardMessage}>{item.message}</Text>
                 </View>
-                <Text style={styles.cardMessage}>{item.message}</Text>
-                <View style={styles.cardBottomRow}>
-                  <Text style={styles.cardTime}>{timeAgo(item.createdAt)}</Text>
-                  {!!actionLabel && <Text style={styles.actionText}>{actionLabel}</Text>}
-                </View>
               </View>
-              <Ionicons name="chevron-forward" size={16} color={MUTED} style={styles.chevron} />
+
+              <View style={styles.cardBottomRow}>
+                <Text style={styles.cardTime}>{timeAgo(item.createdAt)}</Text>
+                <Pressable onPress={() => handleTap(item)} hitSlop={6}>
+                  <Text style={styles.actionText}>{actionLabel}</Text>
+                </Pressable>
+              </View>
             </Pressable>
           );
         })}
@@ -268,44 +272,45 @@ export default function NotificationsScreen({ token, nav }: Props) {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#F5F4EF',
+    backgroundColor: '#EEF2F6',
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 10,
-    paddingTop: 10,
-    paddingBottom: 8,
+    paddingHorizontal: 14,
+    paddingTop: 8,
+    paddingBottom: 10,
+    backgroundColor: '#EEF2F6',
   },
   iconBtn: {
-    minWidth: 36,
-    height: 36,
+    minWidth: 40,
+    height: 40,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 6,
+    paddingHorizontal: 4,
   },
   headerTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '800',
-    color: NAVY,
+    color: '#101F42',
   },
   markAllText: {
-    fontSize: 12.5,
+    fontSize: 13,
     fontWeight: '700',
-    color: GOLD,
+    color: '#D97706',
   },
   markAllTextDisabled: {
-    color: '#C7C4BA',
+    color: '#A0AEC0',
   },
   loadingBox: {
-    paddingVertical: 40,
+    paddingVertical: 50,
     alignItems: 'center',
   },
   errorBox: {
     margin: 20,
     padding: 16,
-    borderRadius: 12,
+    borderRadius: 14,
     backgroundColor: '#FBEAE8',
   },
   errorText: {
@@ -315,84 +320,96 @@ const styles = StyleSheet.create({
   },
   emptyBox: {
     alignItems: 'center',
-    paddingVertical: 60,
-    gap: 10,
+    paddingVertical: 70,
+    gap: 12,
   },
   emptyText: {
-    fontSize: 13,
+    fontSize: 14,
     color: MUTED,
+    fontWeight: '500',
   },
   scrollContent: {
-    paddingHorizontal: 18,
-    paddingBottom: 24,
-    gap: 10,
+    paddingHorizontal: 14,
+    paddingTop: 6,
+    paddingBottom: 30,
   },
   card: {
-    flexDirection: 'row',
-    gap: 12,
     backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    padding: 14,
+    borderRadius: 18,
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 12,
+    marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#EDEBE4',
+    borderColor: '#E2E8F0',
+    shadowColor: '#64748B',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 2,
   },
-  cardUnread: {
-    backgroundColor: '#FBF7EC',
-    borderColor: '#F0DFAE',
+  cardTopSection: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
   },
-  cardIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: '#FDF1DC',
-    alignItems: 'center',
-    justifyContent: 'center',
+  badgeImage: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    marginTop: 2,
   },
   cardBody: {
     flex: 1,
+    marginLeft: 12,
   },
-  cardTopRow: {
+  cardTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    justifyContent: 'space-between',
+  },
+  titleWithBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    paddingRight: 6,
+    gap: 5,
   },
   cardTitle: {
-    fontSize: 13.5,
-    fontWeight: '800',
-    color: NAVY,
+    fontSize: 14.5,
+    fontWeight: '700',
+    color: '#101F42',
+    letterSpacing: -0.2,
   },
-  unreadDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-    backgroundColor: GOLD,
+  glowDot: {
+    fontSize: 11,
+  },
+  chevron: {
+    marginLeft: 4,
   },
   cardMessage: {
-    fontSize: 12.5,
-    color: '#334155',
-    marginTop: 4,
+    fontSize: 12.8,
+    color: '#475569',
+    marginTop: 3,
     lineHeight: 18,
-  },
-  cardTime: {
-    fontSize: 10.5,
-    color: MUTED,
   },
   cardBottomRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 8,
-    paddingTop: 6,
+    marginTop: 10,
+    paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: '#F2EFEB',
+    borderTopColor: '#F1F5F9',
+  },
+  cardTime: {
+    fontSize: 11.5,
+    color: '#94A3B8',
+    fontWeight: '500',
   },
   actionText: {
-    fontSize: 11.5,
-    fontWeight: '800',
-    color: GOLD,
-  },
-  chevron: {
-    alignSelf: 'center',
-    marginLeft: 4,
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#D97706',
+    textDecorationLine: 'underline',
   },
 });

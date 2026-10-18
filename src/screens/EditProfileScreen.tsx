@@ -21,6 +21,7 @@ export default function EditProfileScreen({ token, nav }: Props) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [mobile, setMobile] = useState('');
+  const [targetExam, setTargetExam] = useState('');
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -34,6 +35,7 @@ export default function EditProfileScreen({ token, nav }: Props) {
         setName(profile.name);
         setEmail(profile.email);
         setMobile(profile.mobile);
+        setTargetExam(profile.targetExam || 'SSC CGL / Railway');
         setProfileImage(profile.profileImage);
       } catch (err) {
         setApiError(err instanceof Error ? err.message : 'Failed to load profile.');
@@ -68,7 +70,12 @@ export default function EditProfileScreen({ token, nav }: Props) {
     if (!validate()) return;
     setSaving(true);
     try {
-      await updateProfile(token, { name: name.trim(), email: email.trim(), mobile: mobile.trim() });
+      await updateProfile(token, {
+        name: name.trim(),
+        email: email.trim(),
+        mobile: mobile.trim(),
+        targetExam: targetExam.trim(),
+      });
       Alert.alert('Saved', 'Your profile has been updated.');
       nav.pop();
     } catch (err) {
@@ -134,6 +141,15 @@ export default function EditProfileScreen({ token, nav }: Props) {
             error={errors.mobile}
             keyboardType="phone-pad"
             maxLength={10}
+          />
+
+          <Text style={styles.label}>Target Exam</Text>
+          <FormInput
+            icon="school-outline"
+            placeholder="e.g. SSC CGL / Railway"
+            value={targetExam}
+            onChangeText={setTargetExam}
+            autoCapitalize="words"
           />
 
           <PrimaryButton label="SAVE CHANGES" onPress={handleSave} loading={saving} />

@@ -121,7 +121,7 @@ export default function AdminManageQuestionsScreen({ token, testId, nav }: Props
               onPress={() => nav.push({ name: 'importQuestions', testId })}
             >
               <Ionicons name="cloud-upload-outline" size={18} color={NAVY} />
-              <Text style={styles.importLabel}>Import Questions (Excel/CSV)</Text>
+              <Text style={styles.importLabel}>Import Questions (Excel/CSV/HTML)</Text>
             </Pressable>
 
             <Text style={styles.sectionTitle}>Added Questions ({questions.length})</Text>

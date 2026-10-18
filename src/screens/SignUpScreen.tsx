@@ -4,8 +4,15 @@ import { useState } from 'react';
 import { ActivityIndicator, Alert, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import AuthLayout from '../components/AuthLayout';
 import FormInput from '../components/FormInput';
+import OtpInput from '../components/OtpInput';
 import PrimaryButton from '../components/PrimaryButton';
-import { sendOtp, verifyOtp, registerUser, AuthResponse } from '../services/auth.service';
+import { sendOtp, verifyOtp, verifyFirebaseOtp, registerUser, AuthResponse } from '../services/auth.service';
+import {
+  sendFirebaseOtp,
+  confirmFirebaseOtp,
+  describeOtpError,
+  OtpConfirmation,
+} from '../services/firebaseAuth.service';
 import { updateProfileImage } from '../services/profile.service';
 import { uploadImage } from '../services/upload.service';
 import { GOLD, MUTED, NAVY } from '../theme/colors';
@@ -32,6 +39,7 @@ export default function SignUpScreen({ onBack, onSignUpSuccess, onGoToLogin }: P
   const [otpTarget, setOtpTarget] = useState('');
   const [otpType, setOtpType] = useState<'email' | 'mobile'>('email');
   const [verificationToken, setVerificationToken] = useState('');
+  const [firebaseConfirmation, setFirebaseConfirmation] = useState<OtpConfirmation | null>(null);
 
   // Register details states
   const [name, setName] = useState('');
@@ -65,22 +73,33 @@ export default function SignUpScreen({ onBack, onSignUpSuccess, onGoToLogin }: P
     setLoading(true);
 
     try {
-      const res = await sendOtp(val);
-      setOtpTarget(res.target);
-      setOtpType(res.type);
-      setSuccessMsg(res.message);
+      if (isValidMobile(val)) {
+        const confirmation = await sendFirebaseOtp(val);
+        setFirebaseConfirmation(confirmation);
+        setOtpTarget(val);
+        setOtpType('mobile');
+        setOtpCode('');
+        setSuccessMsg(`6-digit OTP sent via SMS to +91 ${val}`);
+      } else {
+        const res = await sendOtp(val);
+        setOtpTarget(res.target);
+        setOtpType(res.type);
+        setOtpCode('');
+        setSuccessMsg(res.message);
+      }
       setStep('otp_code');
     } catch (err) {
-      setApiError(err instanceof Error ? err.message : 'Failed to send OTP');
+      const fallback = 'Failed to send OTP. Please try again.';
+      setApiError(isValidMobile(val) ? describeOtpError(err, fallback) : err instanceof Error ? err.message : fallback);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleVerifyOtp = async () => {
+  const handleVerifyOtp = async (codeOverride?: string) => {
     setApiError('');
     setSuccessMsg('');
-    const code = otpCode.trim();
+    const code = (codeOverride ?? otpCode).trim();
     if (!code || code.length !== 6) {
       setErrors({ otpCode: 'Enter 6-digit OTP code' });
       return;
@@ -89,20 +108,27 @@ export default function SignUpScreen({ onBack, onSignUpSuccess, onGoToLogin }: P
     setLoading(true);
 
     try {
-      const res = await verifyOtp(otpTarget, code);
-      setVerificationToken(res.verificationToken);
-      setSuccessMsg('OTP Verified Successfully! Please complete your registration details.');
-      
-      // Auto fill verified target
-      if (res.type === 'email') {
-        setEmail(res.target);
-      } else {
+      if (otpType === 'mobile') {
+        if (!firebaseConfirmation) {
+          throw new Error('OTP session expired. Please request the OTP again.');
+        }
+        const idToken = await confirmFirebaseOtp(firebaseConfirmation, code);
+        const res = await verifyFirebaseOtp(idToken);
+        setVerificationToken(res.verificationToken);
         setMobile(res.target);
+        setSuccessMsg('Mobile number verified successfully! Please complete your registration details.');
+      } else {
+        const res = await verifyOtp(otpTarget, code);
+        setVerificationToken(res.verificationToken);
+        setEmail(res.target);
+        setSuccessMsg('OTP Verified Successfully! Please complete your registration details.');
       }
 
       setStep('register_details');
     } catch (err) {
-      setApiError(err instanceof Error ? err.message : 'Invalid OTP. Please try again.');
+      const fallback = 'Invalid OTP. Please try again.';
+      setApiError(otpType === 'mobile' ? describeOtpError(err, fallback) : err instanceof Error ? err.message : fallback);
+      if (otpType === 'mobile') setOtpCode('');
     } finally {
       setLoading(false);
     }
@@ -181,7 +207,17 @@ export default function SignUpScreen({ onBack, onSignUpSuccess, onGoToLogin }: P
 
   return (
     <AuthLayout
-      onBack={step === 'otp_target' ? onBack : () => setStep('otp_target')}
+      onBack={
+        step === 'otp_target'
+          ? onBack
+          : () => {
+              setOtpCode('');
+              setFirebaseConfirmation(null);
+              setApiError('');
+              setSuccessMsg('');
+              setStep('otp_target');
+            }
+      }
       title={
         step === 'register_details'
           ? 'Create Account'
@@ -193,7 +229,7 @@ export default function SignUpScreen({ onBack, onSignUpSuccess, onGoToLogin }: P
         step === 'register_details'
           ? 'Fill in your details to complete registration.'
           : step === 'otp_code'
-          ? `Enter the 6-digit OTP sent to ${otpTarget}`
+          ? `Enter the 6-digit OTP sent to ${otpType === 'mobile' ? `+91 ${otpTarget}` : otpTarget}`
           : 'Enter your Email or Mobile Number to receive a 6-digit OTP'
       }
       footerText="Already have an account?"
@@ -233,24 +269,33 @@ export default function SignUpScreen({ onBack, onSignUpSuccess, onGoToLogin }: P
       {/* STEP 2: Enter 6-digit OTP Code */}
       {step === 'otp_code' && (
         <View>
-          <FormInput
-            icon="key-outline"
-            placeholder="Enter 6-digit OTP Code"
+          <OtpInput
             value={otpCode}
-            onChangeText={setOtpCode}
+            onChange={setOtpCode}
+            onComplete={(code) => handleVerifyOtp(code)}
             error={errors.otpCode}
-            keyboardType="number-pad"
-            maxLength={6}
+            editable={!loading}
+            autoFocus
           />
 
-          <PrimaryButton label="VERIFY OTP" onPress={handleVerifyOtp} loading={loading} />
+          <PrimaryButton label="VERIFY OTP" onPress={() => handleVerifyOtp()} loading={loading} />
 
           <View style={styles.resendRow}>
             <Pressable onPress={handleSendOtp} disabled={loading} hitSlop={8}>
               <Text style={styles.resendText}>Resend OTP</Text>
             </Pressable>
             <Text style={styles.divider}>|</Text>
-            <Pressable onPress={() => setStep('otp_target')} disabled={loading} hitSlop={8}>
+            <Pressable
+              onPress={() => {
+                setOtpCode('');
+                setFirebaseConfirmation(null);
+                setApiError('');
+                setSuccessMsg('');
+                setStep('otp_target');
+              }}
+              disabled={loading}
+              hitSlop={8}
+            >
               <Text style={styles.resendText}>Change Email / Mobile</Text>
             </Pressable>
           </View>

@@ -75,6 +75,15 @@ export const verifyOtp = async (target: string, otp: string): Promise<VerifyOtpR
   }
 };
 
+export const verifyFirebaseOtp = async (idToken: string): Promise<VerifyOtpResponse> => {
+  try {
+    const response = await api.post<VerifyOtpResponse>('/auth/verify-firebase-otp', { idToken });
+    return response.data;
+  } catch (error) {
+    throw new Error(extractErrorMessage(error, 'Invalid or expired OTP. Please try again.'));
+  }
+};
+
 export const registerUser = async (payload: RegisterPayload): Promise<AuthResponse> => {
   try {
     const response = await api.post<AuthResponse>('/auth/register', payload);

@@ -17,8 +17,10 @@ type Props = {
 
 type PickedFile = { uri: string; name: string; mimeType?: string | null };
 
+type FileType = 'excel' | 'csv' | 'html';
+
 export default function AdminImportQuestionsScreen({ token, testId, nav }: Props) {
-  const [fileType, setFileType] = useState<'excel' | 'csv'>('excel');
+  const [fileType, setFileType] = useState<FileType>('excel');
   const [file, setFile] = useState<PickedFile | null>(null);
   const [result, setResult] = useState<ImportResult | null>(null);
   const [validating, setValidating] = useState(false);
@@ -29,15 +31,18 @@ export default function AdminImportQuestionsScreen({ token, testId, nav }: Props
   const [importedCount, setImportedCount] = useState<number | null>(null);
   const scrollRef = useRef<ScrollView>(null);
 
+  const PICKER_TYPES: Record<FileType, string[]> = {
+    excel: [
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-excel',
+    ],
+    csv: ['text/csv', 'text/comma-separated-values'],
+    html: ['text/html'],
+  };
+
   const pickFile = async () => {
     const picked = await DocumentPicker.getDocumentAsync({
-      type:
-        fileType === 'excel'
-          ? [
-              'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-              'application/vnd.ms-excel',
-            ]
-          : ['text/csv', 'text/comma-separated-values'],
+      type: PICKER_TYPES[fileType],
       copyToCacheDirectory: true,
     });
     if (picked.canceled || !picked.assets?.[0]) return;
@@ -80,7 +85,7 @@ export default function AdminImportQuestionsScreen({ token, testId, nav }: Props
 
   return (
     <SafeAreaView style={styles.root} edges={['top']}>
-      <AdminHeader title="Import Questions" subtitle="Bulk add via spreadsheets" onBack={() => nav.pop()} />
+      <AdminHeader title="Import Questions" subtitle="Bulk add via spreadsheet or HTML" onBack={() => nav.pop()} />
       <ScrollView ref={scrollRef} contentContainerStyle={styles.scrollContent}>
         <View style={styles.typeRow}>
           <Pressable
@@ -98,42 +103,63 @@ export default function AdminImportQuestionsScreen({ token, testId, nav }: Props
             <Text style={styles.typeTitle}>Upload CSV</Text>
             <Text style={styles.typeDesc}>Standard comma separated values</Text>
           </Pressable>
+          <Pressable
+            style={[styles.typeCard, fileType === 'html' && styles.typeCardActive]}
+            onPress={() => setFileType('html')}
+          >
+            <Text style={styles.typeTitle}>Upload HTML</Text>
+            <Text style={styles.typeDesc}>Single quiz HTML export</Text>
+          </Pressable>
         </View>
 
-        <View style={styles.columnsBox}>
-          <Text style={styles.columnsTitle}>REQUIRED COLUMN HEADERS:</Text>
-          <View style={styles.columnsRow}>
-            {['Question', 'Option A', 'Option B', 'Option C', 'Option D', 'Correct Answer', 'Explanation', 'Marks'].map(
-              (col) => (
-                <View key={col} style={styles.columnTag}>
-                  <Text style={styles.columnTagText}>{col}</Text>
-                </View>
-              )
-            )}
+        {fileType === 'html' ? (
+          <View style={styles.columnsBox}>
+            <Text style={styles.columnsTitle}>HTML IMPORT:</Text>
+            <Text style={styles.hindiColumnsHint}>
+              Upload the quiz HTML file as-is (no edits needed). Questions, options, correct
+              answers, marks, and solutions are extracted automatically from it — along with
+              Hindi text if the file has it — and mapped into the same fields as an Excel/CSV
+              import.
+            </Text>
           </View>
-        </View>
-
-        <View style={styles.columnsBox}>
-          <Text style={styles.columnsTitle}>OPTIONAL HINDI COLUMNS (for the language toggle):</Text>
-          <View style={styles.columnsRow}>
-            {[
-              'Question Hindi',
-              'Option A Hindi',
-              'Option B Hindi',
-              'Option C Hindi',
-              'Option D Hindi',
-              'Explanation Hindi',
-            ].map((col) => (
-              <View key={col} style={[styles.columnTag, styles.columnTagOptional]}>
-                <Text style={styles.columnTagText}>{col}</Text>
+        ) : (
+          <>
+            <View style={styles.columnsBox}>
+              <Text style={styles.columnsTitle}>REQUIRED COLUMN HEADERS:</Text>
+              <View style={styles.columnsRow}>
+                {['Question', 'Option A', 'Option B', 'Option C', 'Option D', 'Correct Answer', 'Explanation', 'Marks'].map(
+                  (col) => (
+                    <View key={col} style={styles.columnTag}>
+                      <Text style={styles.columnTagText}>{col}</Text>
+                    </View>
+                  )
+                )}
               </View>
-            ))}
-          </View>
-          <Text style={styles.hindiColumnsHint}>
-            Fill the question + all four Hindi options for a row to enable the EN/हिं toggle for
-            that question on the student app. Leave them blank for English-only questions.
-          </Text>
-        </View>
+            </View>
+
+            <View style={styles.columnsBox}>
+              <Text style={styles.columnsTitle}>OPTIONAL HINDI COLUMNS (for the language toggle):</Text>
+              <View style={styles.columnsRow}>
+                {[
+                  'Question Hindi',
+                  'Option A Hindi',
+                  'Option B Hindi',
+                  'Option C Hindi',
+                  'Option D Hindi',
+                  'Explanation Hindi',
+                ].map((col) => (
+                  <View key={col} style={[styles.columnTag, styles.columnTagOptional]}>
+                    <Text style={styles.columnTagText}>{col}</Text>
+                  </View>
+                ))}
+              </View>
+              <Text style={styles.hindiColumnsHint}>
+                Fill the question + all four Hindi options for a row to enable the EN/हिं toggle for
+                that question on the student app. Leave them blank for English-only questions.
+              </Text>
+            </View>
+          </>
+        )}
 
         <Text style={styles.helperText}>
           Step 1: pick a file below — it will be checked automatically. Step 2: review the
@@ -150,9 +176,11 @@ export default function AdminImportQuestionsScreen({ token, testId, nav }: Props
             <>
               <Ionicons name="cloud-upload-outline" size={26} color={NAVY} />
               <Text style={styles.dropzoneBtnText}>
-                {fileType === 'excel' ? 'Choose Excel File' : 'Choose CSV File'}
+                {fileType === 'excel' ? 'Choose Excel File' : fileType === 'csv' ? 'Choose CSV File' : 'Choose HTML File'}
               </Text>
-              <Text style={styles.dropzoneHint}>Excel or CSV file</Text>
+              <Text style={styles.dropzoneHint}>
+                {fileType === 'html' ? 'HTML file' : 'Excel or CSV file'}
+              </Text>
               {!!file && <Text style={styles.fileName}>{file.name}</Text>}
             </>
           )}
